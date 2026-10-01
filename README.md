@@ -10,13 +10,15 @@ Abra a planilha **"Bar do Zazá · site"** no Google Drive e edite. A mudança a
 
 | Aba        | O que controla                                                                                       |
 | ---------- | ---------------------------------------------------------------------------------------------------- |
-| `Cardapio` | Os itens. Colunas `secao`, `nome`, `descricao`, `preco`.                                             |
+| `Cardapio` | Os itens. Colunas `secao`, `nome`, `opcao`, `descricao`, `preco`, `em_falta`.                        |
 | `Horarios` | Um dia por linha. `horario` tipo `12h às 23h`, ou `Fechado`. `obs` é opcional.                       |
 | `Sobre`    | Endereço, telefone, links (Maps, avaliação, iFood, Instagram) e frases do site. Edite só a coluna `valor`. |
 
 Dicas:
 
 - **Preço**: só o número (`23`, `7,50`). Vazio aparece como "consulte".
+- **Variações** (com batata, meia porção, latão…): repita o `nome` em outra linha da mesma seção e escreva a variação em `opcao`. No site vira um item só. A linha sem `opcao` é o preço principal.
+- **Em falta**: marque a caixa `em_falta`. O item continua no site, apagado e com o selo "em falta". Desmarque quando voltar.
 - **Seções** aparecem no site na ordem em que surgem na planilha. Pra criar uma seção nova, escreva um nome novo na coluna `secao`.
 - **Esconder um item** sem perder a linha: apague o `nome`.
 - **iFood / Instagram**: preencha na aba `Sobre` e o botão aparece sozinho.

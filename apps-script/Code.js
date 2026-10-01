@@ -5,7 +5,7 @@
  * Publicado como Web App ("Qualquer pessoa"), via clasp (veja o README).
  *
  * Abas:
- *   - Cardapio (secao, nome, descricao, preco)
+ *   - Cardapio (secao, nome, opcao, descricao, preco, em_falta)
  *   - Horarios (dia, horario, obs)
  *   - Sobre    (chave, valor)  -> textos e links do site
  *
@@ -15,7 +15,7 @@
  */
 
 var ABAS = {
-  cardapio: { nome: "Cardapio", aceitos: ["cardapio", "cardapios", "menu"], colunas: ["secao", "nome", "descricao", "preco"] },
+  cardapio: { nome: "Cardapio", aceitos: ["cardapio", "cardapios", "menu"], colunas: ["secao", "nome", "opcao", "descricao", "preco", "em_falta"] },
   horarios: { nome: "Horarios", aceitos: ["horarios", "horario"], colunas: ["dia", "horario", "obs"] },
   sobre: { nome: "Sobre", aceitos: ["sobre", "informacoes", "info"], colunas: ["chave", "valor", "para que serve"] },
 };
@@ -23,16 +23,16 @@ var ABAS = {
 var EXPLICACAO_SOBRE = {
   nome: "Nome que aparece no rodapé.",
   endereco: "Endereço que aparece em \"Onde fica\".",
-  telefone: "Com DDD. Vira os botões de WhatsApp e Ligar.",
+  whatsapp: "Com DDD. Vira o botão de WhatsApp.",
   maps: "Link do bar no Google Maps (botão Compartilhar do Maps).",
   avaliar: "Link que abre a tela de avaliar no Google. Não mexa se não souber.",
   aviso_horario: "Frase embaixo dos horários. Vazio = some.",
-  almoco_texto: "Frase que aparece na seção Almoço e janta. Vazio = some.",
+  refeicoes_texto: "Frase que aparece na seção Refeições. Vazio = some.",
   ifood: "Link da Kaká no iFood. Preenchido = aparece o botão \"Pedir no iFood\".",
   instagram: "Ex.: @bardozaza. Preenchido = aparece o botão do Instagram.",
 };
 
-var CACHE_KEY = "zaza_v1";
+var CACHE_KEY = "zaza_v2";
 var CACHE_SEGUNDOS = 600;
 
 function doGet(e) {
@@ -111,6 +111,7 @@ function criarAba(ss, chave) {
   } else {
     linhas = DADOS_PADRAO[chave].map(function (item) {
       return conf.colunas.map(function (c) {
+        if (c === "em_falta") return item[c] === true;
         var v = item[c] == null ? "" : item[c];
         return c === "preco" && v !== "" ? Number(v) : v;
       });
@@ -121,12 +122,18 @@ function criarAba(ss, chave) {
   sh.setFrozenRows(1);
 
   if (chave === "cardapio") {
-    sh.setColumnWidth(1, 150).setColumnWidth(2, 260).setColumnWidth(3, 380).setColumnWidth(4, 80);
+    sh.setColumnWidth(1, 130).setColumnWidth(2, 210).setColumnWidth(3, 200).setColumnWidth(4, 320);
+    sh.setColumnWidth(5, 70).setColumnWidth(6, 80);
+    sh.getRange(2, 6, Math.max(sh.getMaxRows() - 1, 1), 1).insertCheckboxes();
     sh.getRange("A1").setNote(
       "Nome da seção. As seções aparecem no site na ordem em que surgem aqui. Seção nova = é só escrever um nome novo.",
     );
-    sh.getRange("D1").setNote("Só o número (ex.: 23 ou 7,50). Vazio = aparece \"consulte\".");
     sh.getRange("B1").setNote("Linha sem nome é ignorada: apague o nome para esconder um item sem perder a linha.");
+    sh.getRange("C1").setNote(
+      "Variação do mesmo item (Com batata frita, Meia porção, Latão...). Linhas com o mesmo nome na mesma seção viram um item só no site. Deixe vazio na linha do preço principal.",
+    );
+    sh.getRange("E1").setNote("Só o número (ex.: 23 ou 7,50). Vazio = aparece \"consulte\".");
+    sh.getRange("F1").setNote("Marque quando acabar. O item continua no site, apagado e com o selo EM FALTA. Desmarque quando voltar.");
   } else if (chave === "horarios") {
     sh.setColumnWidth(1, 120).setColumnWidth(2, 140).setColumnWidth(3, 320);
     sh.getRange("B1").setNote("Ex.: 12h às 23h. Escreva Fechado nos dias que não abre.");
@@ -154,16 +161,24 @@ function apagarAbaVaziaPadrao(ss) {
 
 /** Tabela com cabeçalho na linha 1. Linhas totalmente vazias são puladas. */
 function lerTabela(sh) {
-  var valores = sh.getDataRange().getDisplayValues();
+  var faixa = sh.getDataRange();
+  var valores = faixa.getDisplayValues();
+  var brutos = faixa.getValues();
   if (valores.length < 2) return [];
   var cab = valores[0].map(normalizar);
   var saida = [];
   for (var i = 1; i < valores.length; i++) {
     var linha = valores[i];
-    if (linha.join("").trim() === "") continue;
+    // Caixa desmarcada também conta como vazia (a coluna em_falta vem cheia delas)
+    var temConteudo = brutos[i].some(function (v) {
+      return v !== "" && v !== false && v != null;
+    });
+    if (!temConteudo) continue;
     var obj = {};
     cab.forEach(function (c, j) {
-      if (c) obj[c] = String(linha[j]).trim();
+      if (!c) return;
+      // Caixa de seleção vai como true/false de verdade, não "VERDADEIRO"
+      obj[c] = typeof brutos[i][j] === "boolean" ? brutos[i][j] : String(linha[j]).trim();
     });
     saida.push(obj);
   }

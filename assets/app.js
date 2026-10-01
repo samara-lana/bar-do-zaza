@@ -2,7 +2,7 @@
   "use strict";
 
   var FUSO = "America/Sao_Paulo";
-  var CHAVE_CACHE = "zaza_dados_v1";
+  var CHAVE_CACHE = "zaza_dados_v2";
   var TEMPO_LIMITE_MS = 10000;
 
   var DIAS = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
@@ -12,6 +12,13 @@
 
   function txt(v) {
     return v == null ? "" : String(v).trim();
+  }
+
+  /** Caixa marcada na planilha chega como true, "TRUE", "VERDADEIRO", "sim" ou "x". */
+  function marcado(v) {
+    if (v === true) return true;
+    var s = slug(v);
+    return s === "true" || s === "verdadeiro" || s === "sim" || s === "x" || s === "1" || s === "em-falta";
   }
 
   /** "Almoço e Janta " -> "almoco-e-janta" */
@@ -180,27 +187,85 @@
     aviso.hidden = !aviso.textContent;
   }
 
-  /** Agrupa os itens por seção, na ordem em que as seções aparecem na planilha. */
+  /**
+   * Agrupa as linhas por seção (na ordem em que aparecem na planilha) e, dentro
+   * da seção, junta as linhas de mesmo nome num item só com variações.
+   */
   function agrupar(cardapio) {
     var grupos = [];
     var porChave = {};
-    cardapio.forEach(function (item) {
-      var nome = txt(item.nome);
+    cardapio.forEach(function (linha) {
+      var nome = txt(linha.nome);
       if (!nome) return;
-      var secao = txt(item.secao) || "Outros";
+      var secao = txt(linha.secao) || "Outros";
       var chave = slug(secao);
-      if (!porChave[chave]) {
-        porChave[chave] = { titulo: secao, id: "c-" + chave, itens: [] };
-        grupos.push(porChave[chave]);
+      var g = porChave[chave];
+      if (!g) {
+        g = porChave[chave] = { titulo: secao, id: "c-" + chave, itens: [], porNome: {} };
+        grupos.push(g);
       }
-      porChave[chave].itens.push(item);
+      var item = g.porNome[slug(nome)];
+      if (!item) {
+        item = g.porNome[slug(nome)] = { nome: nome, descricao: "", base: null, opcoes: [] };
+        g.itens.push(item);
+      }
+      if (!item.descricao) item.descricao = txt(linha.descricao);
+      var entrada = {
+        opcao: txt(linha.opcao),
+        preco: formatarPreco(linha.preco),
+        falta: marcado(linha.em_falta),
+      };
+      if (!entrada.opcao && !item.base) item.base = entrada;
+      else item.opcoes.push(entrada);
     });
     return grupos;
   }
 
+  function renderItem(item) {
+    var entradas = (item.base ? [item.base] : []).concat(item.opcoes);
+    var tudoEmFalta = entradas.every(function (e) {
+      return e.falta;
+    });
+
+    var nome = el("span", { classe: "item__nome", texto: item.nome });
+    if (tudoEmFalta) nome.appendChild(el("span", { classe: "selo-falta", texto: "em falta" }));
+
+    var linha = el("div", { classe: "item__linha" + (item.base ? "" : " item__linha--sem-preco") }, [nome]);
+    if (item.base) {
+      linha.appendChild(
+        el("span", {
+          classe: "item__preco" + (item.base.preco ? "" : " item__preco--consulte"),
+          texto: item.base.preco || "consulte",
+        }),
+      );
+    }
+
+    var opcoes = null;
+    if (item.opcoes.length) {
+      opcoes = el(
+        "ul",
+        { classe: "opcoes" },
+        item.opcoes.map(function (o) {
+          var li = el("li", { classe: "opcao" + (o.falta && !tudoEmFalta ? " opcao--falta" : "") }, [
+            el("span", { texto: o.opcao }),
+            el("b", { texto: o.preco || "consulte" }),
+          ]);
+          if (o.falta && !tudoEmFalta) li.appendChild(el("span", { texto: "· em falta" }));
+          return li;
+        }),
+      );
+    }
+
+    return el("li", { classe: "item" + (tudoEmFalta ? " item--falta" : "") }, [
+      linha,
+      item.descricao ? el("p", { classe: "item__desc", texto: item.descricao }) : null,
+      opcoes,
+    ]);
+  }
+
   function notaDaSecao(grupo, sobre) {
-    if (grupo.id.indexOf("almoco") < 0) return null;
-    var texto = txt(sobre.almoco_texto);
+    if (!/refeic|almoco/.test(grupo.id)) return null;
+    var texto = txt(sobre.refeicoes_texto);
     var ifood = txt(sobre.ifood);
     if (!texto && !ifood) return null;
     var p = el("p", { classe: "grupo__nota", texto: texto });
@@ -219,21 +284,7 @@
     abas.innerHTML = "";
 
     grupos.forEach(function (g) {
-      var itens = el(
-        "ul",
-        { classe: "itens" },
-        g.itens.map(function (item) {
-          var preco = formatarPreco(item.preco);
-          return el("li", { classe: "item" }, [
-            el("span", { classe: "item__nome", texto: txt(item.nome) }),
-            el("span", {
-              classe: "item__preco" + (preco ? "" : " item__preco--consulte"),
-              texto: preco || "consulte",
-            }),
-            txt(item.descricao) ? el("span", { classe: "item__desc", texto: txt(item.descricao) }) : null,
-          ]);
-        }),
-      );
+      var itens = el("ul", { classe: "itens" }, g.itens.map(renderItem));
       lista.appendChild(
         el("section", { classe: "grupo", id: g.id, "aria-labelledby": g.id + "-t" }, [
           el("h3", { classe: "grupo__titulo", id: g.id + "-t", texto: g.titulo }),
@@ -266,8 +317,9 @@
         if (!atual) return;
         Array.prototype.forEach.call(abas.children, function (a) {
           var ativa = a.getAttribute("data-alvo") === atual.id;
-          if (ativa && a.getAttribute("aria-current") !== "true") {
-            abas.scrollTo({ left: a.offsetLeft - 16, behavior: "smooth" });
+          if (ativa && a.getAttribute("aria-current") !== "true" && abas.scrollWidth > abas.clientWidth) {
+            var dx = a.getBoundingClientRect().left - abas.getBoundingClientRect().left - 16;
+            abas.scrollTo({ left: abas.scrollLeft + dx, behavior: "smooth" });
           }
           a.setAttribute("aria-current", ativa ? "true" : "false");
         });
@@ -304,10 +356,9 @@
     definirLink("link-maps-topo", maps);
     definirLink("link-avaliar", txt(s.avaliar) || maps);
 
-    var tel = soDigitos(s.telefone);
-    if (tel && tel.indexOf("55") !== 0) tel = "55" + tel;
-    definirLink("link-whatsapp", tel ? "https://wa.me/" + tel : "");
-    definirLink("link-telefone", tel ? "tel:+" + tel : "");
+    var whats = soDigitos(s.whatsapp);
+    if (whats && whats.indexOf("55") !== 0) whats = "55" + whats;
+    definirLink("link-whatsapp", whats ? "https://wa.me/" + whats : "");
 
     var insta = txt(s.instagram).replace(/^@/, "");
     if (insta && insta.indexOf("http") !== 0) insta = "https://instagram.com/" + insta;
