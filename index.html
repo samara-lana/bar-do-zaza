@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Bar do Zazá · Cardápio e horário</title>
+    <meta
+      name="description"
+      content="Cardápio, horário de funcionamento e localização do Bar do Zazá, em Contagem/MG. Porções, tira-gosto, almoço e janta, cervejas e drinks."
+    />
+    <meta name="theme-color" content="#2b1712" />
+    <meta property="og:title" content="Bar do Zazá" />
+    <meta property="og:description" content="Cardápio, horário e localização. Terça a domingo, a partir das 12h." />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Rubik+Dirt&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/style.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero__inner">
+        <p class="hero__eyebrow">Bar do</p>
+        <h1 class="hero__logo" aria-label="Zazá">Zazá</h1>
+        <p class="status" id="status" aria-live="polite">&nbsp;</p>
+        <nav class="hero__acoes" aria-label="Atalhos">
+          <a class="botao botao--cheio" href="#cardapio">Ver cardápio</a>
+          <a class="botao" href="#horario">Horário</a>
+          <a class="botao" id="link-maps-topo" href="#" target="_blank" rel="noopener">Como chegar</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section id="cardapio" class="cardapio" aria-labelledby="titulo-cardapio">
+        <div class="secao-topo">
+          <h2 id="titulo-cardapio" class="titulo">Cardápio</h2>
+        </div>
+        <nav class="abas" id="abas" aria-label="Seções do cardápio"></nav>
+        <div class="cardapio__lista" id="cardapio-lista"></div>
+      </section>
+
+      <section id="horario" class="bloco" aria-labelledby="titulo-horario">
+        <div class="bloco__inner">
+          <h2 id="titulo-horario" class="titulo">Horário</h2>
+          <ul class="horarios" id="horarios"></ul>
+          <p class="nota" id="aviso-horario"></p>
+        </div>
+      </section>
+
+      <section id="avaliar" class="avaliar" aria-labelledby="titulo-avaliar">
+        <div class="avaliar__inner">
+          <div class="estrelas" aria-hidden="true">★★★★★</div>
+          <h2 id="titulo-avaliar" class="avaliar__titulo">Curtiu o Zazá?</h2>
+          <p class="avaliar__texto">
+            Deixa sua avaliação no Google. Leva menos de um minuto e ajuda demais o bar a ser
+            encontrado.
+          </p>
+          <a class="botao botao--escuro" id="link-avaliar" href="#" target="_blank" rel="noopener">
+            Avaliar no Google
+          </a>
+        </div>
+      </section>
+
+      <section id="onde" class="bloco" aria-labelledby="titulo-onde">
+        <div class="bloco__inner">
+          <h2 id="titulo-onde" class="titulo">Onde fica</h2>
+          <p class="endereco" id="endereco"></p>
+          <div class="contatos">
+            <a class="botao botao--cheio" id="link-maps" href="#" target="_blank" rel="noopener">
+              Abrir no Google Maps
+            </a>
+            <a class="botao" id="link-whatsapp" href="#" target="_blank" rel="noopener">WhatsApp</a>
+            <a class="botao" id="link-telefone" href="#">Ligar</a>
+            <a class="botao" id="link-instagram" href="#" target="_blank" rel="noopener" hidden>Instagram</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="rodape">
+      <p><span id="rodape-nome">Bar do Zazá</span> · Contagem/MG</p>
+    </footer>
+
+    <script src="assets/config.js"></script>
+    <script src="assets/dados-padrao.js"></script>
+    <script src="assets/app.js"></script>
+  </body>
+</html>

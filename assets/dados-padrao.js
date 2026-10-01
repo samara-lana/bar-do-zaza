@@ -1,0 +1,131 @@
+/**
+ * Conteúdo padrão do site.
+ *
+ * É o que aparece enquanto a planilha não responde (ou se ela estiver fora do
+ * ar). Quando a planilha carrega, ela substitui tudo isto. Para mudar o
+ * cardápio no dia a dia, edite a PLANILHA, não este arquivo.
+ *
+ * Mesma estrutura que o Apps Script devolve (apps-script/Code.js).
+ */
+window.DADOS_PADRAO = {
+  sobre: {
+    nome: "Bar do Zazá",
+    endereco: "Rua Severo Belém · Estância Silveira · Contagem/MG",
+    telefone: "(31) 99540-8146",
+    maps: "https://maps.app.goo.gl/gTWJhmhasQZLFybF7",
+    avaliar: "https://search.google.com/local/writereview?placeid=ChIJI2dlEI3rpgARwIliNaXXrlI",
+    aviso_horario: "A hora de fechar varia: normalmente por volta das 23h.",
+    almoco_texto:
+      "O almoço e a janta são da Kaká Comida Caseira, servidos aqui no bar e também no iFood.",
+    ifood: "",
+    instagram: "",
+  },
+  horarios: [
+    { dia: "Segunda", horario: "Fechado", obs: "" },
+    { dia: "Terça", horario: "12h às 23h", obs: "" },
+    { dia: "Quarta", horario: "12h às 23h", obs: "" },
+    { dia: "Quinta", horario: "12h às 23h", obs: "" },
+    { dia: "Sexta", horario: "12h às 23h", obs: "" },
+    { dia: "Sábado", horario: "12h às 23h", obs: "" },
+    { dia: "Domingo", horario: "12h às 23h", obs: "" },
+  ],
+  cardapio: [
+    { secao: "Porções", nome: "Filé de tilápia com batata frita", descricao: "", preco: "60" },
+    { secao: "Porções", nome: "Filé de tilápia", descricao: "", preco: "50" },
+    { secao: "Porções", nome: "Contrafilé com batata frita", descricao: "", preco: "60" },
+    { secao: "Porções", nome: "Contrafilé", descricao: "", preco: "50" },
+    { secao: "Porções", nome: "Torresmo com batata frita", descricao: "", preco: "35" },
+    { secao: "Porções", nome: "Torresmo", descricao: "", preco: "20" },
+    { secao: "Porções", nome: "Pernil com batata frita", descricao: "", preco: "45" },
+    { secao: "Porções", nome: "Pernil acebolado", descricao: "", preco: "35" },
+    { secao: "Porções", nome: "Batata frita com queijo e bacon", descricao: "", preco: "25" },
+    { secao: "Porções", nome: "Batata frita", descricao: "", preco: "20" },
+    { secao: "Porções", nome: "Fígado de boi acebolado", descricao: "", preco: "20" },
+    { secao: "Porções", nome: "Linguiça caseira", descricao: "", preco: "30" },
+
+    { secao: "Meia porção", nome: "Filé de tilápia", descricao: "", preco: "30" },
+    { secao: "Meia porção", nome: "Torresmo", descricao: "", preco: "10" },
+
+    { secao: "Tira-gosto", nome: "Bife de filé de tilápia", descricao: "", preco: "12" },
+    { secao: "Tira-gosto", nome: "Língua de boi", descricao: "", preco: "8" },
+    { secao: "Tira-gosto", nome: "Almôndegas", descricao: "", preco: "7" },
+    {
+      secao: "Tira-gosto",
+      nome: "Jiló recheado",
+      descricao: "Com bacon e linguiça calabresa",
+      preco: "6",
+    },
+    { secao: "Tira-gosto", nome: "Frango frito", descricao: "", preco: "6" },
+    { secao: "Tira-gosto", nome: "Pé de porco", descricao: "", preco: "6" },
+    { secao: "Tira-gosto", nome: "Linguiça", descricao: "", preco: "6" },
+    { secao: "Tira-gosto", nome: "Carne cozida", descricao: "", preco: "10" },
+
+    {
+      secao: "Almoço e janta",
+      nome: "Filé de tilápia",
+      descricao: "Filé de tilápia, purê de batata, arroz, feijão e salada",
+      preco: "23",
+    },
+    {
+      secao: "Almoço e janta",
+      nome: "Bife de boi",
+      descricao: "Bife de boi acebolado, batata frita, arroz, feijão e salada",
+      preco: "23",
+    },
+    {
+      secao: "Almoço e janta",
+      nome: "Macarrão à bolonhesa",
+      descricao: "Macarrão, molho de carne moída e queijo",
+      preco: "22",
+    },
+    {
+      secao: "Almoço e janta",
+      nome: "Fígado de boi",
+      descricao: "Fígado de boi, arroz, feijão, batata frita e salada",
+      preco: "22",
+    },
+
+    {
+      secao: "Caldos",
+      nome: "Caldo de mandioca",
+      descricao: "Caldo de mandioca com carne, linguiça, bacon e torresmo",
+      preco: "",
+    },
+    { secao: "Caldos", nome: "Dobradinha", descricao: "", preco: "" },
+
+    { secao: "Cervejas", nome: "Heineken 600 ml", descricao: "", preco: "15" },
+    { secao: "Cervejas", nome: "Spaten 600 ml", descricao: "", preco: "13" },
+    { secao: "Cervejas", nome: "Original 600 ml", descricao: "", preco: "12" },
+    { secao: "Cervejas", nome: "Brahma 600 ml", descricao: "", preco: "11" },
+    { secao: "Cervejas", nome: "Amstel 600 ml", descricao: "", preco: "11" },
+    { secao: "Cervejas", nome: "Latão Heineken", descricao: "", preco: "9" },
+    { secao: "Cervejas", nome: "Latão Original", descricao: "", preco: "8" },
+    { secao: "Cervejas", nome: "Latão Brahma", descricao: "", preco: "7" },
+    { secao: "Cervejas", nome: "Latão Kaiser", descricao: "", preco: "6" },
+    { secao: "Cervejas", nome: "Litrinho Original", descricao: "", preco: "6" },
+    { secao: "Cervejas", nome: "Litrinho Brahma", descricao: "", preco: "5" },
+
+    { secao: "Drinks", nome: "Caipivodka", descricao: "", preco: "12" },
+    { secao: "Drinks", nome: "Caipirinha", descricao: "", preco: "10" },
+
+    {
+      secao: "Copão de whisky",
+      nome: "Cavalo Branco ou Red Label",
+      descricao: "Com gelinho e energético",
+      preco: "22",
+    },
+    { secao: "Copão de whisky", nome: "Chanceler", descricao: "", preco: "15" },
+
+    { secao: "Destilados", nome: "Whisky Red Label", descricao: "", preco: "18" },
+    { secao: "Destilados", nome: "Whisky Cavalo Branco", descricao: "", preco: "16" },
+    { secao: "Destilados", nome: "Campari", descricao: "", preco: "12" },
+    { secao: "Destilados", nome: "Vodka", descricao: "", preco: "8" },
+    { secao: "Destilados", nome: "Pinga Seleta", descricao: "", preco: "7" },
+    { secao: "Destilados", nome: "Jurubeba", descricao: "", preco: "5" },
+    { secao: "Destilados", nome: "Pinga da Rosa", descricao: "", preco: "4" },
+    { secao: "Destilados", nome: "Conhaque", descricao: "", preco: "4" },
+    { secao: "Destilados", nome: "Paratudo", descricao: "", preco: "4" },
+    { secao: "Destilados", nome: "Selvagem", descricao: "", preco: "4" },
+    { secao: "Destilados", nome: "Vinho", descricao: "", preco: "4" },
+  ],
+};
