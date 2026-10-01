@@ -1,17 +1,20 @@
+/* Cores e letras tiradas do cardápio impresso (PDF) */
 :root {
-  --papel: #fbfaf7;
-  --papel-2: #f1efe9;
-  --tinta: #15213a;
-  --tinta-suave: #5d6577;
-  --linha: #dedad1;
-  --vermelho: #d7261e;
-  --vermelho-escuro: #b31c15;
-  --verde: #1f9d55;
-  --whats: #1fa855;
-  --largura: 720px;
+  --fundo: #311810;
+  --fundo-2: #40231a;
+  --fundo-3: #4d2c21;
+  --linha: #5c3a2d;
+  --texto: #ffffff;
+  --texto-suave: #d9c6ba;
+  --laranja: #ffa732;
+  --laranja-escuro: #e88f15;
+  --verde: #6fd38a;
+  --vermelho: #ff8b7b;
+  --whats: #25d366;
+  --largura: 760px;
   --gutter: 16px;
-  --letreiro: "Anton", "Impact", "Arial Narrow", sans-serif;
-  color-scheme: light;
+  --logo: "Rubik Dirt", "Poppins", sans-serif;
+  color-scheme: dark;
 }
 
 [hidden] {
@@ -36,9 +39,9 @@ html {
 
 body {
   margin: 0;
-  background: var(--papel);
-  color: var(--tinta);
-  font-family: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: 16px;
   line-height: 1.5;
   overflow-x: hidden;
@@ -64,150 +67,114 @@ p {
   gap: 8px;
   min-height: 46px;
   padding: 10px 20px;
-  border: 2px solid var(--tinta);
-  border-radius: 6px;
-  color: var(--tinta);
+  border: 2px solid var(--laranja);
+  border-radius: 999px;
+  color: var(--laranja);
   background: transparent;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 0.95rem;
   text-decoration: none;
   white-space: nowrap;
   transition:
     background-color 0.15s,
-    color 0.15s,
-    transform 0.1s;
-}
-
-.botao:active {
-  transform: translateY(1px);
+    color 0.15s;
 }
 
 .botao:hover {
-  background: var(--papel-2);
+  background: rgba(255, 167, 50, 0.12);
 }
 
 .botao:focus-visible,
 .aba:focus-visible {
-  outline: 3px solid var(--vermelho);
+  outline: 3px solid var(--texto);
   outline-offset: 2px;
 }
 
 .botao--cheio {
-  background: var(--tinta);
-  color: #fff;
+  background: var(--laranja);
+  color: var(--fundo);
 }
 
 .botao--cheio:hover {
-  background: #0b1426;
+  background: var(--laranja-escuro);
+  border-color: var(--laranja-escuro);
 }
 
 .botao--whats {
   border-color: var(--whats);
   background: var(--whats);
-  color: #fff;
+  color: #0b2a16;
 }
 
 .botao--whats:hover {
-  background: #178a45;
-}
-
-/* Botões sobre o vermelho do topo */
-.hero .botao {
-  border-color: #fff;
-  color: #fff;
-}
-
-.hero .botao:hover {
-  background: rgba(255, 255, 255, 0.14);
-}
-
-.hero .botao--cheio {
-  background: #fff;
-  color: var(--vermelho);
-}
-
-.hero .botao--cheio:hover {
-  background: #ffe9e7;
+  background: #1fb858;
+  border-color: #1fb858;
 }
 
 /* ---------- Topo ---------- */
 
 .hero {
-  position: relative;
-  padding: 44px var(--gutter) 40px;
+  padding: 48px var(--gutter) 44px;
   text-align: center;
-  color: #fff;
-  background: var(--vermelho);
-}
-
-/* Faixa listrada embaixo do letreiro, tipo toldo de boteco */
-.hero::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -10px;
-  height: 10px;
-  background: repeating-linear-gradient(90deg, var(--vermelho) 0 22px, #fff 22px 44px);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 167, 50, 0.16), transparent 65%), var(--fundo);
 }
 
 .hero__inner {
   max-width: var(--largura);
   margin: 0 auto;
+  padding: 28px 12px 32px;
+  /* moldura laranja, como a do cardápio impresso */
+  border: 2px solid var(--laranja);
+  border-radius: 4px;
 }
 
 .hero__eyebrow {
-  font-family: var(--letreiro);
-  font-size: 1.15rem;
-  letter-spacing: 0.4em;
-  padding-left: 0.4em;
+  color: var(--laranja);
+  font-weight: 800;
+  letter-spacing: 0.35em;
+  padding-left: 0.35em;
   text-transform: uppercase;
+  font-size: 0.95rem;
 }
 
 .hero__logo {
-  font-family: var(--letreiro);
+  font-family: var(--logo);
   font-weight: 400;
-  font-size: clamp(6rem, 34vw, 11rem);
-  line-height: 0.95;
-  letter-spacing: 0.01em;
+  font-size: clamp(4.5rem, 22vw, 9rem);
+  line-height: 1;
   text-transform: uppercase;
-  margin: 2px 0 20px;
-  text-shadow: 4px 4px 0 var(--vermelho-escuro);
+  margin: 2px 0 18px;
 }
 
 .status {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 34px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: #fff;
-  color: var(--tinta);
-  font-weight: 600;
-  font-size: 0.92rem;
-}
-
-.status:empty {
-  visibility: hidden;
+  min-height: 1.5em;
+  font-weight: 500;
+  color: var(--texto-suave);
 }
 
 .status::before {
   content: "";
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: var(--tinta-suave);
+  background: currentColor;
   flex: none;
 }
 
-.status--aberto::before {
-  background: var(--verde);
-  box-shadow: 0 0 0 3px rgba(31, 157, 85, 0.2);
+.status:empty::before {
+  display: none;
 }
 
-.status--fechado::before {
-  background: var(--vermelho);
+.status--aberto {
+  color: var(--verde);
+}
+
+.status--fechado {
+  color: var(--vermelho);
 }
 
 .hero__acoes {
@@ -215,27 +182,18 @@ p {
   flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
-  margin-top: 24px;
+  margin-top: 22px;
 }
 
 /* ---------- Títulos ---------- */
 
 .titulo {
-  font-family: var(--letreiro);
-  font-weight: 400;
-  font-size: clamp(2rem, 9vw, 2.8rem);
-  line-height: 1;
+  color: var(--laranja);
+  font-weight: 800;
+  font-size: clamp(1.7rem, 7vw, 2.3rem);
   text-transform: uppercase;
-  letter-spacing: 0.01em;
-}
-
-.titulo::after {
-  content: "";
-  display: block;
-  width: 48px;
-  height: 5px;
-  margin-top: 10px;
-  background: var(--vermelho);
+  letter-spacing: 0.02em;
+  line-height: 1.1;
 }
 
 /* ---------- Cardápio ---------- */
@@ -243,7 +201,7 @@ p {
 .cardapio {
   max-width: var(--largura);
   margin: 0 auto;
-  padding: 52px 0 24px;
+  padding: 36px 0 24px;
 }
 
 .secao-topo {
@@ -257,10 +215,10 @@ p {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  margin-top: 18px;
+  margin-top: 14px;
   padding: 12px var(--gutter);
   scroll-padding-inline: var(--gutter);
-  background: var(--papel);
+  background: var(--fundo);
   border-bottom: 1px solid var(--linha);
   scrollbar-width: none;
 }
@@ -279,19 +237,20 @@ p {
   flex: none;
   padding: 7px 14px;
   border-radius: 999px;
-  border: 1.5px solid var(--linha);
-  background: #fff;
-  color: var(--tinta);
+  border: 1px solid var(--linha);
+  background: var(--fundo-2);
+  color: var(--texto);
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: 500;
   text-decoration: none;
   white-space: nowrap;
 }
 
 .aba[aria-current="true"] {
-  background: var(--tinta);
-  border-color: var(--tinta);
-  color: #fff;
+  background: var(--laranja);
+  border-color: var(--laranja);
+  color: var(--fundo);
+  font-weight: 600;
 }
 
 .cardapio__lista {
@@ -299,27 +258,29 @@ p {
 }
 
 .grupo {
-  padding-top: 32px;
+  padding-top: 30px;
 }
 
 .grupo__titulo {
-  font-family: var(--letreiro);
-  font-weight: 400;
-  font-size: 1.6rem;
-  line-height: 1.1;
+  color: var(--laranja);
+  font-weight: 800;
+  font-size: 1.35rem;
+  line-height: 1.2;
   text-transform: uppercase;
-  color: var(--vermelho);
+  letter-spacing: 0.03em;
 }
 
 .grupo__nota {
   margin-top: 6px;
-  color: var(--tinta-suave);
-  font-size: 0.92rem;
+  color: var(--texto-suave);
+  font-size: 0.9rem;
+  font-style: italic;
 }
 
 .grupo__nota a {
-  color: var(--vermelho);
-  font-weight: 700;
+  color: var(--laranja);
+  font-weight: 600;
+  font-style: normal;
   white-space: nowrap;
 }
 
@@ -330,8 +291,8 @@ p {
 }
 
 .item {
-  padding: 13px 0;
-  border-bottom: 1px solid var(--linha);
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--linha);
 }
 
 .item:last-child {
@@ -341,47 +302,36 @@ p {
 .item__linha {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: 12px;
 }
 
 .item__nome {
-  font-weight: 700;
-  font-size: 1.05rem;
-  line-height: 1.3;
-}
-
-/* pontilhado entre o nome e o preço */
-.item__linha::after {
-  content: "";
-  order: 1;
   flex: 1;
-  min-width: 16px;
-  border-bottom: 2px dotted var(--linha);
-  transform: translateY(-4px);
-}
-
-.item__linha--sem-preco::after {
-  display: none;
+  font-weight: 600;
+  font-size: 1.02rem;
+  line-height: 1.35;
 }
 
 .item__preco {
-  order: 2;
-  font-weight: 800;
-  font-size: 1.05rem;
+  color: var(--laranja);
+  font-weight: 700;
+  font-size: 1.02rem;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
 .item__preco--consulte {
-  font-weight: 500;
+  color: var(--texto-suave);
+  font-weight: 400;
   font-size: 0.85rem;
-  color: var(--tinta-suave);
+  font-style: italic;
 }
 
 .item__desc {
   margin-top: 2px;
-  color: var(--tinta-suave);
-  font-size: 0.9rem;
+  color: var(--texto-suave);
+  font-size: 0.88rem;
+  font-style: italic;
   line-height: 1.4;
 }
 
@@ -399,57 +349,126 @@ p {
   align-items: baseline;
   gap: 6px;
   padding: 4px 10px;
-  border-radius: 6px;
-  background: var(--papel-2);
-  font-size: 0.88rem;
+  border-radius: 999px;
+  background: var(--fundo-2);
+  border: 1px solid var(--linha);
+  font-size: 0.86rem;
   line-height: 1.35;
 }
 
 .opcao b {
-  font-weight: 800;
+  color: var(--laranja);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .opcao--falta {
-  color: var(--tinta-suave);
+  color: var(--texto-suave);
 }
 
 .opcao--falta b {
+  color: var(--texto-suave);
   text-decoration: line-through;
+  font-weight: 500;
+}
+
+/* ---------- Seção em tabela (ex.: cervejas: 600 ml | latão | litrinho) ---------- */
+
+.tabela {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabela th {
+  padding: 6px 4px 8px;
+  color: var(--laranja);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  text-align: center;
+  vertical-align: bottom;
+  line-height: 1.2;
+  border-bottom: 1px solid var(--linha);
+}
+
+.tabela th:first-child {
+  text-align: left;
+  padding-left: 0;
+}
+
+.tabela td {
+  padding: 12px 4px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--laranja);
+  border-bottom: 1px dashed var(--linha);
+  white-space: nowrap;
+}
+
+.tabela tr:last-child td {
+  border-bottom: 0;
+}
+
+.tabela td:first-child {
+  padding-left: 0;
+  text-align: left;
+  color: var(--texto);
   font-weight: 600;
+  white-space: normal;
+}
+
+.tabela .vazio {
+  color: var(--linha);
+  font-weight: 400;
+}
+
+.tabela .falta {
+  color: var(--texto-suave);
+  font-weight: 500;
+  text-decoration: line-through;
+}
+
+.tabela th:not(:first-child),
+.tabela td:not(:first-child) {
+  width: 22%;
 }
 
 /* Item em falta: continua no cardápio, mas apagado e com selo */
 .item--falta .item__nome,
-.item--falta .item__preco {
-  color: var(--tinta-suave);
+.item--falta .item__preco,
+.tabela .linha--falta td:first-child {
+  color: var(--texto-suave);
 }
 
 .item--falta .item__preco {
   text-decoration: line-through;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .selo-falta {
   display: inline-block;
-  margin-left: 6px;
-  padding: 1px 7px;
-  border-radius: 4px;
-  background: var(--tinta);
-  color: #fff;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--fundo-3);
+  border: 1px solid var(--linha);
+  color: var(--texto-suave);
   font-size: 0.7rem;
-  font-weight: 700;
+  font-weight: 600;
+  font-style: normal;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   vertical-align: 2px;
   white-space: nowrap;
-  text-decoration: none;
 }
 
 /* ---------- Horário / Onde ---------- */
 
 .bloco {
-  padding: 52px var(--gutter);
+  padding: 44px var(--gutter);
   border-top: 1px solid var(--linha);
 }
 
@@ -460,7 +479,7 @@ p {
 
 .horarios {
   list-style: none;
-  margin: 20px 0 0;
+  margin: 16px 0 0;
   padding: 0;
 }
 
@@ -468,56 +487,57 @@ p {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 11px 12px;
-  border-bottom: 1px solid var(--linha);
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+
+.horarios li + li {
+  border-top: 1px solid var(--linha);
 }
 
 .horarios .fechado {
-  color: var(--tinta-suave);
+  color: var(--texto-suave);
 }
 
 .horarios .hoje {
-  background: var(--tinta);
-  color: #fff;
-  border-radius: 6px;
-  border-bottom-color: transparent;
-  font-weight: 700;
+  background: var(--fundo-2);
+  border-top-color: transparent;
+  outline: 2px solid var(--laranja);
+  font-weight: 600;
+}
+
+.horarios .hoje + li {
+  border-top-color: transparent;
 }
 
 .horarios .hoje .dia::after {
-  content: "hoje";
-  margin-left: 8px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--vermelho);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  vertical-align: 2px;
+  content: " · hoje";
+  color: var(--laranja);
+  font-weight: 500;
+  font-size: 0.85rem;
 }
 
 .horarios small {
   display: block;
+  color: var(--texto-suave);
   font-size: 0.8rem;
   font-weight: 400;
-  opacity: 0.8;
 }
 
 .horarios .hora {
   text-align: right;
-  font-variant-numeric: tabular-nums;
 }
 
 .nota {
   margin-top: 14px;
-  color: var(--tinta-suave);
-  font-size: 0.92rem;
+  color: var(--texto-suave);
+  font-size: 0.9rem;
+  font-style: italic;
 }
 
 .endereco {
-  margin-top: 18px;
-  font-size: 1.1rem;
-  font-weight: 600;
+  margin-top: 14px;
+  font-size: 1.05rem;
 }
 
 .contatos {
@@ -530,47 +550,44 @@ p {
 /* ---------- Avaliar ---------- */
 
 .avaliar {
-  background: var(--tinta);
-  color: #fff;
-  padding: 52px var(--gutter);
+  background: var(--laranja);
+  color: var(--fundo);
+  padding: 44px var(--gutter);
   text-align: center;
 }
 
 .avaliar__inner {
-  max-width: 520px;
+  max-width: 540px;
   margin: 0 auto;
 }
 
 .estrelas {
-  color: #ffc83d;
-  font-size: 1.7rem;
+  font-size: 1.8rem;
   letter-spacing: 0.15em;
   line-height: 1;
 }
 
 .avaliar__titulo {
-  margin-top: 14px;
-  font-family: var(--letreiro);
-  font-weight: 400;
-  font-size: clamp(2rem, 9vw, 2.8rem);
-  line-height: 1;
+  margin-top: 10px;
+  font-weight: 800;
+  font-size: clamp(1.6rem, 6vw, 2.2rem);
   text-transform: uppercase;
+  line-height: 1.1;
 }
 
 .avaliar__texto {
-  margin: 12px 0 24px;
-  opacity: 0.85;
+  margin: 10px 0 22px;
+  font-weight: 500;
 }
 
 .avaliar .botao {
-  background: var(--vermelho);
-  border-color: var(--vermelho);
-  color: #fff;
+  background: var(--fundo);
+  border-color: var(--fundo);
+  color: var(--laranja);
 }
 
 .avaliar .botao:hover {
-  background: var(--vermelho-escuro);
-  border-color: var(--vermelho-escuro);
+  background: var(--fundo-2);
 }
 
 /* ---------- Rodapé ---------- */
@@ -578,9 +595,24 @@ p {
 .rodape {
   padding: 28px var(--gutter) calc(28px + env(safe-area-inset-bottom));
   text-align: center;
-  color: var(--tinta-suave);
+  color: var(--texto-suave);
   font-size: 0.85rem;
   border-top: 1px solid var(--linha);
+}
+
+.rodape__credito {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  opacity: 0.75;
+}
+
+.rodape__credito a {
+  color: var(--laranja);
+  text-decoration: none;
+}
+
+.rodape__credito a:hover {
+  text-decoration: underline;
 }
 
 @media (min-width: 760px) {

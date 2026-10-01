@@ -230,7 +230,7 @@
     var nome = el("span", { classe: "item__nome", texto: item.nome });
     if (tudoEmFalta) nome.appendChild(el("span", { classe: "selo-falta", texto: "em falta" }));
 
-    var linha = el("div", { classe: "item__linha" + (item.base ? "" : " item__linha--sem-preco") }, [nome]);
+    var linha = el("div", { classe: "item__linha" }, [nome]);
     if (item.base) {
       linha.appendChild(
         el("span", {
@@ -263,6 +263,58 @@
     ]);
   }
 
+  /**
+   * Seção vira tabela quando todos os itens só têm variações (nenhum preço
+   * principal) e as variações se repetem entre itens, tipo as cervejas:
+   * 600 ml | Latão | Litrinho. Devolve as colunas, ou null.
+   */
+  function colunasDaTabela(grupo) {
+    var colunas = [];
+    var repetida = false;
+    var ok = grupo.itens.every(function (item) {
+      if (item.base || !item.opcoes.length) return false;
+      item.opcoes.forEach(function (o) {
+        var k = slug(o.opcao);
+        var achou = colunas.filter(function (c) {
+          return c.chave === k;
+        })[0];
+        if (achou) repetida = true;
+        else colunas.push({ chave: k, titulo: o.opcao });
+      });
+      return true;
+    });
+    if (!ok || !repetida || colunas.length < 2 || colunas.length > 4) return null;
+    return colunas;
+  }
+
+  function renderTabela(grupo, colunas) {
+    var cab = el("tr", null, [el("th", { scope: "col", texto: "" })].concat(
+      colunas.map(function (c) {
+        return el("th", { scope: "col", texto: c.titulo });
+      }),
+    ));
+    var linhas = grupo.itens.map(function (item) {
+      var tudoEmFalta = item.opcoes.every(function (o) {
+        return o.falta;
+      });
+      var nome = el("td", { texto: item.nome });
+      if (tudoEmFalta) nome.appendChild(el("span", { classe: "selo-falta", texto: "em falta" }));
+      var celulas = colunas.map(function (c) {
+        var o = item.opcoes.filter(function (x) {
+          return slug(x.opcao) === c.chave;
+        })[0];
+        if (!o) return el("td", { classe: "vazio", texto: "–", "aria-label": "não tem" });
+        return el("td", {
+          classe: o.falta ? "falta" : "",
+          texto: o.preco || "consulte",
+          title: o.falta ? "em falta" : "",
+        });
+      });
+      return el("tr", { classe: tudoEmFalta ? "linha--falta" : "" }, [nome].concat(celulas));
+    });
+    return el("table", { classe: "tabela" }, [el("thead", null, [cab]), el("tbody", null, linhas)]);
+  }
+
   function notaDaSecao(grupo, sobre) {
     if (!/refeic|almoco/.test(grupo.id)) return null;
     var texto = txt(sobre.refeicoes_texto);
@@ -284,7 +336,8 @@
     abas.innerHTML = "";
 
     grupos.forEach(function (g) {
-      var itens = el("ul", { classe: "itens" }, g.itens.map(renderItem));
+      var colunas = colunasDaTabela(g);
+      var itens = colunas ? renderTabela(g, colunas) : el("ul", { classe: "itens" }, g.itens.map(renderItem));
       lista.appendChild(
         el("section", { classe: "grupo", id: g.id, "aria-labelledby": g.id + "-t" }, [
           el("h3", { classe: "grupo__titulo", id: g.id + "-t", texto: g.titulo }),
@@ -346,6 +399,7 @@
     var s = dados.sobre;
     var nome = txt(s.nome) || "Bar do Zazá";
     document.getElementById("rodape-nome").textContent = nome;
+    document.getElementById("ano").textContent = new Date().getFullYear();
     document.getElementById("endereco").textContent = txt(s.endereco);
 
     var maps = txt(s.maps);

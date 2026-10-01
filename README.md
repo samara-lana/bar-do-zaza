@@ -48,7 +48,7 @@ clasp push                                   # envia o código
 clasp deploy -i <ID_DA_IMPLANTACAO> -d "v2"  # publica mantendo a mesma URL
 ```
 
-O ID da implantação está em `clasp deployments`. A URL `/exec` fica em `assets/config.js`.
+O ID da implantação atual é `AKfycbyP2LieKMcs6IxjsrjQMBC4_8MsN6k9wWQcrQSIWD8ImnZxF3ta2PS_GqQtxoY0U3St` (ou veja em `clasp deployments`). A URL `/exec` fica em `assets/config.js`.
 
 `apps-script/Padrao.js` é gerado a partir de `assets/dados-padrao.js` e só serve para preencher abas novas. Se mudar o padrão, gere de novo:
 
