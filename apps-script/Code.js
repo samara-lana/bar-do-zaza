@@ -7,6 +7,7 @@
  * Abas:
  *   - Cardapio (secao, nome, opcao, descricao, preco, em_falta)
  *   - Horarios (dia, horario, obs)
+ *   - Fotos    (foto, legenda)
  *   - Sobre    (chave, valor)  -> textos e links do site
  *
  * Se uma aba não existir, ela é criada já preenchida com o conteúdo padrão
@@ -17,6 +18,7 @@
 var ABAS = {
   cardapio: { nome: "Cardapio", aceitos: ["cardapio", "cardapios", "menu"], colunas: ["secao", "nome", "opcao", "descricao", "preco", "em_falta"] },
   horarios: { nome: "Horarios", aceitos: ["horarios", "horario"], colunas: ["dia", "horario", "obs"] },
+  fotos: { nome: "Fotos", aceitos: ["fotos", "foto", "galeria"], colunas: ["foto", "legenda"] },
   sobre: { nome: "Sobre", aceitos: ["sobre", "informacoes", "info"], colunas: ["chave", "valor", "para que serve"] },
 };
 
@@ -47,6 +49,7 @@ function doGet(e) {
   var dados = {
     cardapio: lerTabela(acharOuCriar(ss, "cardapio")),
     horarios: lerTabela(acharOuCriar(ss, "horarios")),
+    fotos: lerTabela(acharOuCriar(ss, "fotos")),
     sobre: lerChaveValor(acharOuCriar(ss, "sobre")),
     atualizado: new Date().toISOString(),
   };
@@ -65,6 +68,7 @@ function onOpen() {
     .createMenu("Site do Zazá")
     .addItem("Criar abas que estiverem faltando", "criarAbasQueFaltam")
     .addItem("Atualizar o site agora", "onEdit")
+    .addItem("Trocar senha do admin", "trocarSenhaAdmin")
     .addToUi();
 }
 
@@ -134,6 +138,12 @@ function criarAba(ss, chave) {
     );
     sh.getRange("E1").setNote("Só o número (ex.: 23 ou 7,50). Vazio = aparece \"consulte\".");
     sh.getRange("F1").setNote("Marque quando acabar. O item continua no site, apagado e com o selo EM FALTA. Desmarque quando voltar.");
+  } else if (chave === "fotos") {
+    sh.setColumnWidth(1, 420).setColumnWidth(2, 240);
+    sh.getRange("A1").setNote(
+      "Link da foto. Pode ser do Google Drive (compartilhada como \"qualquer pessoa com o link\") ou o caminho de um arquivo da pasta fotos/ do site. A ordem aqui é a ordem no site.",
+    );
+    sh.getRange("B1").setNote("Opcional. Texto curto embaixo da foto (ex.: Torresmo com batata).");
   } else if (chave === "horarios") {
     sh.setColumnWidth(1, 120).setColumnWidth(2, 140).setColumnWidth(3, 320);
     sh.getRange("B1").setNote("Ex.: 12h às 23h. Escreva Fechado nos dias que não abre.");

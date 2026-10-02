@@ -1,0 +1,13 @@
+{
+  "name": "Zazá · Admin",
+  "short_name": "Zazá Admin",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#311810",
+  "theme_color": "#311810",
+  "icons": [
+    { "src": "../assets/icone-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "../assets/icone-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

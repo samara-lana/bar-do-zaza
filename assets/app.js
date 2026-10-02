@@ -399,7 +399,6 @@
     var s = dados.sobre;
     var nome = txt(s.nome) || "Bar do Zazá";
     document.getElementById("rodape-nome").textContent = nome;
-    document.getElementById("ano").textContent = new Date().getFullYear();
     document.getElementById("endereco").textContent = txt(s.endereco);
 
     var maps = txt(s.maps);
@@ -421,9 +420,45 @@
     document.getElementById("avaliar").hidden = !(txt(s.avaliar) || maps);
   }
 
+  /**
+   * Link de compartilhamento do Google Drive não abre como imagem; o endereço
+   * lh3.googleusercontent.com/d/ID abre (com o arquivo compartilhado como
+   * "qualquer pessoa com o link").
+   */
+  function urlDaFoto(url) {
+    var u = txt(url);
+    var drive = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]+)/);
+    if (drive) return "https://lh3.googleusercontent.com/d/" + drive[1] + "=w1200";
+    return u;
+  }
+
+  function renderFotos(dados) {
+    var secao = document.getElementById("fotos");
+    var lista = document.getElementById("fotos-lista");
+    var fotos = (dados.fotos || []).filter(function (f) {
+      return txt(f.foto);
+    });
+    lista.innerHTML = "";
+    secao.hidden = !fotos.length;
+    fotos.forEach(function (f) {
+      var legenda = txt(f.legenda);
+      var img = el("img", { src: urlDaFoto(f.foto), alt: legenda || "Foto do Bar do Zazá", loading: "lazy" });
+      // Link quebrado some em vez de deixar um buraco na galeria
+      img.addEventListener("error", function () {
+        var li = img.closest("li");
+        if (li) li.remove();
+        if (!lista.children.length) secao.hidden = true;
+      });
+      lista.appendChild(
+        el("li", null, [el("figure", { classe: "foto" }, [img, legenda ? el("figcaption", { texto: legenda }) : null])]),
+      );
+    });
+  }
+
   function render(dados) {
     renderStatus(dados);
     renderCardapio(dados);
+    renderFotos(dados);
     renderHorarios(dados);
     renderContatos(dados);
   }
@@ -450,6 +485,7 @@
     var temCardapio = Array.isArray(d.cardapio) && d.cardapio.some(function (i) {
       return txt(i.nome);
     });
+    var temFotos = Array.isArray(d.fotos);
     var temHorarios = Array.isArray(d.horarios) && d.horarios.some(function (h) {
       return txt(h.dia);
     });
@@ -457,6 +493,7 @@
       sobre: sobre,
       cardapio: temCardapio ? d.cardapio : p.cardapio,
       horarios: temHorarios ? d.horarios : p.horarios,
+      fotos: temFotos ? d.fotos : p.fotos,
     };
   }
 

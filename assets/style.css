@@ -13,7 +13,7 @@
   --whats: #25d366;
   --largura: 760px;
   --gutter: 16px;
-  --logo: "Rubik Dirt", "Poppins", sans-serif;
+  --logo: "Rubik", "Poppins", sans-serif;
   color-scheme: dark;
 }
 
@@ -123,10 +123,6 @@ p {
 .hero__inner {
   max-width: var(--largura);
   margin: 0 auto;
-  padding: 28px 12px 32px;
-  /* moldura laranja, como a do cardápio impresso */
-  border: 2px solid var(--laranja);
-  border-radius: 4px;
 }
 
 .hero__eyebrow {
@@ -140,7 +136,7 @@ p {
 
 .hero__logo {
   font-family: var(--logo);
-  font-weight: 400;
+  font-weight: 900;
   font-size: clamp(4.5rem, 22vw, 9rem);
   line-height: 1;
   text-transform: uppercase;
@@ -465,6 +461,62 @@ p {
   white-space: nowrap;
 }
 
+/* ---------- Fotos ---------- */
+
+.fotos {
+  max-width: var(--largura);
+  margin: 0 auto;
+  padding: 44px 0;
+  border-top: 1px solid var(--linha);
+}
+
+/* Carrossel: no celular rola de lado, uma foto e um pedaço da próxima */
+.fotos__lista {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0 var(--gutter) 4px;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--gutter);
+  scrollbar-width: none;
+}
+
+.fotos__lista::-webkit-scrollbar {
+  display: none;
+}
+
+.fotos__lista::after {
+  content: "";
+  flex: 0 0 calc(var(--gutter) - 12px);
+}
+
+.fotos__lista > li {
+  flex: 0 0 min(78%, 300px);
+  scroll-snap-align: start;
+}
+
+.foto {
+  margin: 0;
+}
+
+.foto img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: 12px;
+  background: var(--fundo-2);
+}
+
+.foto figcaption {
+  margin-top: 8px;
+  color: var(--texto-suave);
+  font-size: 0.88rem;
+  font-style: italic;
+}
+
 /* ---------- Horário / Onde ---------- */
 
 .bloco {
@@ -598,21 +650,6 @@ p {
   color: var(--texto-suave);
   font-size: 0.85rem;
   border-top: 1px solid var(--linha);
-}
-
-.rodape__credito {
-  margin-top: 4px;
-  font-size: 0.78rem;
-  opacity: 0.75;
-}
-
-.rodape__credito a {
-  color: var(--laranja);
-  text-decoration: none;
-}
-
-.rodape__credito a:hover {
-  text-decoration: underline;
 }
 
 @media (min-width: 760px) {

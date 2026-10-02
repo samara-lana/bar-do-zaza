@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Zazá · Admin</title>
+    <meta name="theme-color" content="#311810" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Zazá Admin" />
+    <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="../assets/icone-180.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Rubik:wght@900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../assets/style.css" />
+    <link rel="stylesheet" href="admin.css" />
+  </head>
+  <body class="admin">
+    <!-- Login -->
+    <section class="login" id="tela-login" hidden>
+      <form class="login__caixa" id="form-login" autocomplete="on">
+        <p class="hero__eyebrow">Bar do</p>
+        <h1 class="hero__logo login__logo">Zazá</h1>
+        <p class="login__sub">Área de edição do cardápio</p>
+        <label class="campo">
+          <span>Senha</span>
+          <input
+            id="senha"
+            name="password"
+            type="password"
+            inputmode="numeric"
+            autocomplete="current-password"
+            required
+          />
+        </label>
+        <p class="erro" id="erro-login" role="alert"></p>
+        <button class="botao botao--cheio botao--largo" type="submit" id="botao-entrar">Entrar</button>
+      </form>
+    </section>
+
+    <!-- Cardápio -->
+    <section id="tela-cardapio" hidden>
+      <header class="barra">
+        <h1 class="barra__titulo">Cardápio</h1>
+        <a class="barra__link" href="../" target="_blank" rel="noopener">Ver site</a>
+        <button class="barra__link" type="button" id="botao-sair">Sair</button>
+      </header>
+      <nav class="abas" id="abas" aria-label="Seções"></nav>
+      <p class="dica">Toque em <b>Em falta</b> quando acabar. Toque no item para editar.</p>
+      <div id="lista" class="admin-lista"></div>
+      <div class="admin-rodape">
+        <button class="botao botao--largo" type="button" id="botao-nova-secao">+ Nova seção</button>
+      </div>
+    </section>
+
+    <!-- Carregando -->
+    <div class="carregando" id="carregando" hidden><span class="giro" aria-hidden="true"></span> Carregando…</div>
+
+    <!-- Editor de item -->
+    <dialog class="editor" id="editor" aria-labelledby="editor-titulo">
+      <form id="form-item" method="dialog">
+        <header class="editor__topo">
+          <button class="barra__link" type="button" id="editor-cancelar">Cancelar</button>
+          <h2 id="editor-titulo">Editar item</h2>
+          <button class="barra__link barra__link--forte" type="submit" id="editor-salvar">Salvar</button>
+        </header>
+
+        <div class="editor__corpo">
+          <label class="campo">
+            <span>Seção</span>
+            <select id="campo-secao"></select>
+          </label>
+          <label class="campo" id="campo-secao-nova-rotulo" hidden>
+            <span>Nome da nova seção</span>
+            <input id="campo-secao-nova" type="text" autocapitalize="sentences" />
+          </label>
+          <label class="campo" id="campo-depois-rotulo" hidden>
+            <span>Aparece depois de</span>
+            <select id="campo-depois"></select>
+          </label>
+          <label class="campo">
+            <span>Nome</span>
+            <input id="campo-nome" type="text" required autocapitalize="sentences" />
+          </label>
+          <label class="campo">
+            <span>Descrição <small>(opcional)</small></span>
+            <textarea id="campo-descricao" rows="2" autocapitalize="sentences"></textarea>
+          </label>
+
+          <fieldset class="precos">
+            <legend>Preços</legend>
+            <p class="dica dica--editor">
+              Um preço só? Deixe a opção vazia. Tem variações (com batata, latão, 600 ml)? Uma linha para
+              cada.
+            </p>
+            <div id="variacoes"></div>
+            <button class="botao botao--pequeno" type="button" id="botao-variacao">+ Adicionar variação</button>
+          </fieldset>
+
+          <button class="botao botao--perigo botao--largo" type="button" id="botao-excluir">Excluir item</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="aviso" id="aviso" role="status" aria-live="polite"></div>
+
+    <script src="../assets/config.js"></script>
+    <script src="admin.js"></script>
+  </body>
+</html>

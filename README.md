@@ -6,11 +6,14 @@ Site do Bar do Zazá (Contagem/MG): cardápio, horário de funcionamento, locali
 
 ## Como editar o cardápio
 
-Abra a planilha **"Bar do Zazá · site"** no Google Drive e edite. A mudança aparece no site em segundos (é só recarregar a página).
+**Pelo celular:** abra `/admin/` no site (https://samara-lana.github.io/bar-do-zaza/admin/) e entre com a senha. Dá pra marcar item em falta, editar nome/descrição/preços, criar e excluir itens e seções. No celular, use "Adicionar à tela inicial" pra abrir como app. A senha fica só no Google (hash nas Propriedades do script); pra trocar, use o menu **Site do Zazá → Trocar senha do admin** na planilha.
+
+**Pela planilha:** abra a planilha **"Bar do Zazá · site"** no Google Drive e edite. A mudança aparece no site em segundos (é só recarregar a página).
 
 | Aba        | O que controla                                                                                       |
 | ---------- | ---------------------------------------------------------------------------------------------------- |
 | `Cardapio` | Os itens. Colunas `secao`, `nome`, `opcao`, `descricao`, `preco`, `em_falta`.                        |
+| `Fotos`    | Galeria do site. `foto` = link (Google Drive compartilhado serve) ou arquivo da pasta `fotos/`; `legenda` opcional. |
 | `Horarios` | Um dia por linha. `horario` tipo `12h às 23h`, ou `Fechado`. `obs` é opcional.                       |
 | `Sobre`    | Endereço, telefone, links (Maps, avaliação, iFood, Instagram) e frases do site. Edite só a coluna `valor`. |
 
@@ -33,6 +36,8 @@ assets/style.css        visual
 assets/app.js           monta o cardápio, horário e "aberto agora"
 assets/config.js        URL do Web App da planilha
 assets/dados-padrao.js  conteúdo padrão (usado enquanto a planilha não responde)
+admin/                  área de edição pelo celular (fala com o Apps Script)
+fotos/                  fotos servidas pelo próprio site
 apps-script/            código da planilha (Google Apps Script, enviado com clasp)
 ```
 

@@ -7,7 +7,7 @@
  *
  * Linhas com a mesma `secao` + `nome` viram um item só no site: a linha sem
  * `opcao` é o preço principal e as outras aparecem como variações
- * ("Com batata frita", "Meia porção", "Latão"...).
+ * ("Com batata frita", "Latão"...).
  *
  * Mesma estrutura que o Apps Script devolve (apps-script/Code.js).
  */
@@ -33,22 +33,25 @@ window.DADOS_PADRAO = {
     { dia: "Sábado", horario: "12h às 23h", obs: "" },
     { dia: "Domingo", horario: "12h às 23h", obs: "" },
   ],
+  // `foto`: caminho de um arquivo da pasta fotos/ ou link (Google Drive compartilhado também serve)
+  fotos: [{ foto: "fotos/almondegas.jpg", legenda: "Almôndegas" }],
   // prettier-ignore
   cardapio: [
     { secao: "Porções", nome: "Filé de tilápia", opcao: "", descricao: "", preco: "50" },
     { secao: "Porções", nome: "Filé de tilápia", opcao: "Com batata frita", descricao: "", preco: "60" },
-    { secao: "Porções", nome: "Filé de tilápia", opcao: "Meia porção", descricao: "", preco: "30" },
     { secao: "Porções", nome: "Contrafilé", opcao: "", descricao: "", preco: "50" },
     { secao: "Porções", nome: "Contrafilé", opcao: "Com batata frita", descricao: "", preco: "60" },
     { secao: "Porções", nome: "Torresmo", opcao: "", descricao: "", preco: "20" },
     { secao: "Porções", nome: "Torresmo", opcao: "Com batata frita", descricao: "", preco: "35" },
-    { secao: "Porções", nome: "Torresmo", opcao: "Meia porção", descricao: "", preco: "10" },
     { secao: "Porções", nome: "Pernil", opcao: "Acebolado", descricao: "", preco: "35" },
     { secao: "Porções", nome: "Pernil", opcao: "Com batata frita", descricao: "", preco: "45" },
     { secao: "Porções", nome: "Batata frita", opcao: "", descricao: "", preco: "20" },
     { secao: "Porções", nome: "Batata frita", opcao: "Com queijo e bacon", descricao: "", preco: "25" },
     { secao: "Porções", nome: "Fígado de boi acebolado", opcao: "", descricao: "", preco: "20" },
     { secao: "Porções", nome: "Linguiça caseira", opcao: "", descricao: "", preco: "30" },
+
+    { secao: "Meia porção", nome: "Filé de tilápia", opcao: "", descricao: "", preco: "30" },
+    { secao: "Meia porção", nome: "Torresmo", opcao: "", descricao: "", preco: "10" },
 
     { secao: "Tira-gosto", nome: "Bife de filé de tilápia", opcao: "", descricao: "", preco: "12" },
     { secao: "Tira-gosto", nome: "Carne cozida", opcao: "", descricao: "", preco: "10" },
