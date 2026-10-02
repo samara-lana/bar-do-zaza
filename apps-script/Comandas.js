@@ -60,11 +60,13 @@ function salvarComandas(lista) {
   var lock = LockService.getScriptLock();
   lock.waitLock(15000);
   try {
+    // Só id (A) e atualizado (I): a cópia completa (H) pesa e a aba só cresce
     var n = sh.getLastRow() - 1;
-    var existentes = n > 0 ? sh.getRange(2, 1, n, 9).getValues() : [];
+    var ids = n > 0 ? sh.getRange(2, 1, n, 1).getValues() : [];
+    var datas = n > 0 ? sh.getRange(2, 9, n, 1).getValues() : [];
     var linhaDoId = {};
-    existentes.forEach(function (v, i) {
-      linhaDoId[String(v[0])] = { linha: i + 2, atualizado: Number(v[8]) || 0 };
+    ids.forEach(function (v, i) {
+      linhaDoId[String(v[0])] = { linha: i + 2, atualizado: Number(datas[i][0]) || 0 };
     });
 
     var salvas = [];
@@ -105,19 +107,24 @@ function listarComandas(dias) {
   if (n < 1) return { ok: true, comandas: [] };
   var limite = Date.now() - (Number(dias) || 40) * 864e5;
   var comandas = [];
-  sh.getRange(2, 1, n, 9)
-    .getValues()
-    .forEach(function (v) {
-      var c;
-      try {
-        c = JSON.parse(v[7]);
-      } catch (err) {
-        return;
-      }
-      if (!c || !c.id) return;
-      var encerrada = c.status === "paga" || c.status === "excluida";
-      if (encerrada && (Number(c.fechada) || 0) < limite) return;
-      comandas.push(c);
-    });
+  // Filtra pelas colunas leves (id, status, fechada) antes de abrir a cópia completa
+  var ids = sh.getRange(2, 1, n, 1).getValues();
+  var leves = sh.getRange(2, 3, n, 3).getValues();
+  var copias = sh.getRange(2, 8, n, 1).getValues();
+  leves.forEach(function (v, i) {
+    // Linha com o id apagado = linha apagada à mão (as colunas escondidas
+    // H e I ficam pra trás quando se apaga só o que está visível)
+    if (!String(ids[i][0]).trim()) return;
+    var encerrada = v[0] === "paga" || v[0] === "excluida";
+    var fechada = v[2] instanceof Date ? v[2].getTime() : 0;
+    if (encerrada && fechada && fechada < limite) return;
+    var c;
+    try {
+      c = JSON.parse(copias[i][0]);
+    } catch (err) {
+      return;
+    }
+    if (c && c.id) comandas.push(c);
+  });
   return { ok: true, comandas: comandas };
 }
