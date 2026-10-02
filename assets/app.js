@@ -618,7 +618,19 @@
     }
   }
 
-  function buscarPlanilha() {
+  /**
+   * Entre o que este celular guardou e a cópia que a Action do GitHub tira da
+   * planilha de hora em hora (assets/dados-planilha.js), fica a mais recente.
+   * Assim quem abre o site pela primeira vez não cai no padrão velho do código.
+   */
+  function maisRecente(a, b) {
+    if (!a) return b || null;
+    if (!b) return a;
+    return txt(b.atualizado) > txt(a.atualizado) ? b : a;
+  }
+
+  function buscarPlanilha(tentativa) {
+    tentativa = tentativa || 1;
     var url = txt(window.APPS_SCRIPT_URL);
     if (!url) return;
     var controle = "AbortController" in window ? new AbortController() : null;
@@ -636,14 +648,21 @@
         render(mesclar(json));
       })
       .catch(function (e) {
-        console.warn("Planilha indisponível, usando o cardápio salvo:", e);
+        // O Google às vezes demora pra acordar o script ou responde erro: tenta mais uma vez
+        if (tentativa < 2) {
+          setTimeout(function () {
+            buscarPlanilha(tentativa + 1);
+          }, 3000);
+        } else {
+          console.warn("Planilha indisponível, usando o cardápio salvo:", e);
+        }
       })
       .then(function () {
         clearTimeout(timer);
       });
   }
 
-  render(mesclar(lerCache()));
+  render(mesclar(maisRecente(lerCache(), window.DADOS_PLANILHA)));
   buscarPlanilha();
 
   // Atualiza "aberto agora" e "servindo agora" sem precisar recarregar a página.

@@ -1,0 +1,39 @@
+name: Cópia da planilha
+
+# De hora em hora guarda no site uma cópia do conteúdo da planilha, para quem
+# abre o site pela primeira vez não ver um cardápio velho quando o Google demora.
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: dados-planilha
+  cancel-in-progress: false
+
+jobs:
+  copiar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node .github/scripts/dados-planilha.mjs
+      - name: Publicar se mudou
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet -- assets/dados-planilha.js; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/dados-planilha.js
+          git commit -m "Cópia da planilha atualizada"
+          git pull --rebase
+          git push
+          # Garante que o GitHub Pages republique o site
+          gh api -X POST "repos/${{ github.repository }}/pages/builds" || true
