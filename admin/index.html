@@ -122,6 +122,20 @@
       </form>
     </dialog>
 
+    <!-- Perguntas e confirmações (no lugar das janelinhas do navegador) -->
+    <dialog class="pergunta" id="pergunta" aria-labelledby="pergunta-titulo">
+      <form id="pergunta-form" novalidate>
+        <h2 class="pergunta__titulo" id="pergunta-titulo"></h2>
+        <p class="pergunta__texto" id="pergunta-texto"></p>
+        <div id="pergunta-campos"></div>
+        <p class="erro" id="pergunta-erro" role="alert"></p>
+        <div class="pergunta__botoes">
+          <button class="botao" type="button" id="pergunta-cancelar">Cancelar</button>
+          <button class="botao botao--cheio" type="submit" id="pergunta-ok">OK</button>
+        </div>
+      </form>
+    </dialog>
+
     <div class="aviso" id="aviso" role="status" aria-live="polite"></div>
     <div class="desfazer" id="desfazer" role="status" aria-live="polite">
       <span id="desfazer-texto"></span>

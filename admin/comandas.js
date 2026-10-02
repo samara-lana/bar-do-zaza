@@ -364,12 +364,21 @@
   }
 
   function lancar(c, item, botao) {
-    var preco = item.preco;
-    if (preco == null) {
-      preco = lerPreco(prompt("Quanto custa " + item.nome + "?", ""));
-      if (preco == null) return;
+    if (item.preco == null) {
+      // Item sem preço no cardápio (ex.: caldos): pergunta na hora
+      Z()
+        .perguntar({
+          titulo: item.nome,
+          texto: "Esse item está sem preço no cardápio.",
+          campos: [{ rotulo: "Preço", numero: true }],
+          ok: "Lançar",
+        })
+        .then(function (v) {
+          if (v) lancar(c, { chave: item.chave, nome: item.nome, preco: lerPreco(v[0]) }, botao);
+        });
+      return;
     }
-    var l = { id: novoId(), chave: item.chave, nome: item.nome, preco: preco, hora: Date.now() };
+    var l = { id: novoId(), chave: item.chave, nome: item.nome, preco: item.preco, hora: Date.now() };
     c.lancamentos.push(l);
     mudou(c);
     if (botao) {
@@ -411,11 +420,19 @@
   }
 
   function itemAvulso(c) {
-    var nome = Z().txt(prompt("Nome do item (ex.: Gelo, Cigarro):", ""));
-    if (!nome) return;
-    var preco = lerPreco(prompt("Preço de " + nome + ":", ""));
-    if (preco == null) return Z().avisar("Preço inválido.", true);
-    lancar(c, { chave: "avulso-" + Z().slug(nome), nome: nome, preco: preco });
+    Z()
+      .perguntar({
+        titulo: "Item avulso",
+        texto: "Pra algo que não está no cardápio.",
+        campos: [
+          { rotulo: "Nome", dica: "Ex.: Gelo, Cigarro" },
+          { rotulo: "Preço", numero: true },
+        ],
+        ok: "Lançar",
+      })
+      .then(function (v) {
+        if (v) lancar(c, { chave: "avulso-" + Z().slug(v[0]), nome: v[0], preco: lerPreco(v[1]) });
+      });
   }
 
   function encerrar(c, status) {
@@ -720,12 +737,15 @@
           classe: "barra__link",
           texto: "Trocar nome",
           onclick: function () {
-            var novo = Z().txt(prompt("Novo nome:", c.cliente));
-            if (!novo) return;
-            c.cliente = novo;
-            lembrarCliente(novo);
-            mudou(c);
-            renderComanda(c.id, true);
+            Z()
+              .perguntar({ titulo: "Trocar nome", campos: [{ rotulo: "Nome do cliente", valor: c.cliente }], ok: "Salvar" })
+              .then(function (v) {
+                if (!v) return;
+                c.cliente = v[0];
+                lembrarCliente(v[0]);
+                mudou(c);
+                renderComanda(c.id, true);
+              });
           },
         }),
         el("button", {
@@ -733,9 +753,16 @@
           classe: "barra__link barra__link--perigo",
           texto: "Excluir comanda",
           onclick: function () {
-            if (confirm("Excluir a comanda de " + c.cliente + " (" + dinheiro(total(c)) + ")? Ela não conta nas vendas.")) {
-              encerrar(c, "excluida");
-            }
+            Z()
+              .perguntar({
+                titulo: "Excluir a comanda de " + c.cliente + "?",
+                texto: dinheiro(total(c)) + " · use só se abriu por engano. Ela não conta nas vendas.",
+                ok: "Excluir",
+                perigo: true,
+              })
+              .then(function (sim) {
+                if (sim) encerrar(c, "excluida");
+              });
           },
         }),
       ]),
@@ -791,7 +818,15 @@
         classe: "botao botao--whats botao--largo",
         texto: (c.status === "pendurada" ? "Recebi " : "Recebido · ") + dinheiro(total(c)),
         onclick: function () {
-          if (confirm("Confirmar que recebeu " + dinheiro(total(c)) + " de " + c.cliente + "?")) encerrar(c, "paga");
+          Z()
+            .perguntar({
+              titulo: "Recebeu " + dinheiro(total(c)) + "?",
+              texto: "A conta de " + c.cliente + " vai ser fechada.",
+              ok: "Recebi",
+            })
+            .then(function (sim) {
+              if (sim) encerrar(c, "paga");
+            });
         },
       }),
     ];

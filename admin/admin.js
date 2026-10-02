@@ -519,7 +519,17 @@
 
   $("botao-excluir").addEventListener("click", function () {
     if (!editando) return;
-    if (!confirm('Excluir "' + editando.nome + '" do cardápio? Isso não tem volta.')) return;
+    perguntar({
+      titulo: "Excluir " + editando.nome + "?",
+      texto: "Sai do cardápio e do site. Isso não tem volta.",
+      ok: "Excluir",
+      perigo: true,
+    }).then(function (sim) {
+      if (sim) excluirEditando();
+    });
+  });
+
+  function excluirEditando() {
     salvando(true);
     api("excluirItem", { original: editando })
       .then(function (r) {
@@ -534,6 +544,78 @@
       .then(function () {
         salvando(false);
       });
+  }
+
+  // ---------- perguntas ----------
+
+  /**
+   * Caixa de pergunta do próprio admin. O confirm()/prompt() do navegador
+   * mostra o endereço do site ("samara-lana.github.io diz…") e não dá pra
+   * mudar.
+   *
+   *   perguntar({ titulo, texto, campos: [{ rotulo, valor, numero }], ok, perigo })
+   *     -> Promise com os valores dos campos (ou true, sem campos); null se cancelou
+   */
+  var respostaPendente = null;
+
+  function perguntar(o) {
+    var dialogo = $("pergunta");
+    $("pergunta-titulo").textContent = o.titulo || "";
+    $("pergunta-texto").textContent = o.texto || "";
+    $("pergunta-texto").hidden = !o.texto;
+    $("pergunta-erro").textContent = "";
+    $("pergunta-ok").textContent = o.ok || "OK";
+    $("pergunta-ok").className = "botao " + (o.perigo ? "botao--perigo-cheio" : "botao--cheio");
+    var caixa = $("pergunta-campos");
+    caixa.innerHTML = "";
+    (o.campos || []).forEach(function (c, i) {
+      var input = el("input", {
+        type: "text",
+        id: "pergunta-campo-" + i,
+        autocomplete: "off",
+        autocapitalize: c.numero ? "off" : "sentences",
+        inputmode: c.numero ? "decimal" : "text",
+        placeholder: c.dica || (c.numero ? "R$ (ex.: 12 ou 7,50)" : ""),
+      });
+      input.value = c.valor || "";
+      var rotulo = el("label", { classe: "campo" }, [el("span", { texto: c.rotulo }), input]);
+      caixa.appendChild(rotulo);
+    });
+    if (respostaPendente) respostaPendente(null);
+    return new Promise(function (resolve) {
+      respostaPendente = function (v) {
+        respostaPendente = null;
+        if (dialogo.open) dialogo.close();
+        resolve(v);
+      };
+      dialogo.showModal();
+      var primeiro = $("pergunta-campo-0");
+      if (primeiro) setTimeout(function () {
+        primeiro.focus();
+        primeiro.select();
+      }, 30);
+      $("pergunta-form").onsubmit = function (ev) {
+        ev.preventDefault();
+        var valores = (o.campos || []).map(function (c, i) {
+          return txt($("pergunta-campo-" + i).value);
+        });
+        for (var i = 0; i < valores.length; i++) {
+          var c = o.campos[i];
+          if (!valores[i] && !c.opcional) return ($("pergunta-erro").textContent = "Preencha: " + c.rotulo.toLowerCase());
+          if (c.numero && !/\d/.test(valores[i])) return ($("pergunta-erro").textContent = "Escreva só o número, ex.: 12 ou 7,50");
+        }
+        respostaPendente(o.campos && o.campos.length ? valores : true);
+      };
+    });
+  }
+
+  $("pergunta-cancelar").addEventListener("click", function () {
+    if (respostaPendente) respostaPendente(null);
+  });
+  // Esc / voltar do Android fecham como "cancelar"
+  $("pergunta").addEventListener("cancel", function (ev) {
+    ev.preventDefault();
+    if (respostaPendente) respostaPendente(null);
   });
 
   // ---------- o que as comandas (comandas.js) usam daqui ----------
@@ -545,6 +627,7 @@
     slug: slug,
     marcado: marcado,
     avisar: avisar,
+    perguntar: perguntar,
     linhas: function () {
       return linhas;
     },
