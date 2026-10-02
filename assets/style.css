@@ -10,6 +10,7 @@
   --laranja-escuro: #e88f15;
   --verde: #6fd38a;
   --vermelho: #ff8b7b;
+  --amarelo: #ffd166;
   --whats: #25d366;
   --largura: 760px;
   --gutter: 16px;
@@ -144,21 +145,23 @@ p {
 }
 
 .status {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  display: inline-block;
+  max-width: 100%;
   min-height: 1.5em;
   font-weight: 500;
   color: var(--texto-suave);
+  text-wrap: balance;
 }
 
 .status::before {
   content: "";
+  display: inline-block;
   width: 10px;
   height: 10px;
+  margin-right: 8px;
   border-radius: 50%;
   background: currentColor;
-  flex: none;
+  vertical-align: 1px;
 }
 
 .status:empty::before {
@@ -171,6 +174,15 @@ p {
 
 .status--fechado {
   color: var(--vermelho);
+}
+
+.status--talvez {
+  color: var(--amarelo);
+}
+
+.status a {
+  color: inherit;
+  font-weight: 600;
 }
 
 .hero__acoes {
@@ -271,6 +283,16 @@ p {
   color: var(--texto-suave);
   font-size: 0.9rem;
   font-style: italic;
+}
+
+.grupo__horas {
+  margin-top: 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.grupo__horas > span {
+  white-space: nowrap;
 }
 
 .grupo__nota a {
@@ -444,6 +466,16 @@ p {
   font-weight: 500;
 }
 
+.item--falta .opcao,
+.item--falta .opcao b {
+  color: var(--texto-suave);
+}
+
+.item--falta .opcao b {
+  text-decoration: line-through;
+  font-weight: 500;
+}
+
 .selo-falta {
   display: inline-block;
   margin-left: 8px;
@@ -518,6 +550,43 @@ p {
 }
 
 /* ---------- Horário / Onde ---------- */
+
+.selo-agora {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--verde);
+  color: #0d2a16;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  vertical-align: 2px;
+  white-space: nowrap;
+}
+
+.refeicoes-horario {
+  margin-top: 36px;
+}
+
+.subtitulo {
+  color: var(--laranja);
+  font-weight: 800;
+  font-size: 1.15rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.25;
+}
+
+.nota--topo {
+  margin-top: 4px;
+}
+
+.refeicoes-horario .horarios {
+  margin-top: 10px;
+}
 
 .bloco {
   padding: 44px var(--gutter);

@@ -120,49 +120,102 @@
     return s;
   }
 
-  function textoStatus(horarios) {
+  /** "24h", "0h", "23:30" -> minutos; meia-noite vira 1440 (fim do dia). */
+  function lerHora(v) {
+    var m = txt(v).match(/(\d{1,2})(?:[:h](\d{2}))?/);
+    if (!m) return null;
+    var min = Number(m[1]) * 60 + Number(m[2] || 0);
+    return min === 0 || min === 1440 ? 1440 : min;
+  }
+
+  /**
+   * Situação agora:
+   *  - aberto: dentro do horário da planilha;
+   *  - talvez: passou do horário, mas ainda antes de `fecha_no_maximo`
+   *    (depende do movimento);
+   *  - fechado.
+   */
+  function textoStatus(horarios, sobre) {
     var sem = semana(horarios);
     if (!sem.some(Boolean)) return null;
     var agora = agoraNoBar();
+    var maximo = lerHora(sobre.fecha_no_maximo);
 
-    // Ainda aberto desde ontem (horário que passa da meia-noite)?
-    var ontem = sem[(agora.dia + 6) % 7];
-    if (ontem && ontem.fecha > 1440 && agora.minutos < ontem.fecha - 1440) {
-      return { aberto: true, texto: "Aberto agora · até umas " + horaLegivel(ontem.fecha) };
+    function limite(faixa) {
+      if (!maximo) return faixa.fecha;
+      var lim = maximo <= faixa.abre ? maximo + 1440 : maximo;
+      return Math.max(lim, faixa.fecha);
     }
+
+    function dentro(faixa, minutos) {
+      if (minutos >= faixa.abre && minutos < faixa.fecha) {
+        var ate = limite(faixa) > faixa.fecha ? "até pelo menos " : "até ";
+        return { estado: "aberto", texto: "Aberto agora · " + ate + horaLegivel(faixa.fecha) };
+      }
+      if (minutos >= faixa.fecha && minutos < limite(faixa)) {
+        return { estado: "talvez", texto: "Pode estar aberto · depende do movimento" };
+      }
+      return null;
+    }
+
+    // Noite de ontem que passou da meia-noite?
+    var ontem = sem[(agora.dia + 6) % 7];
+    var st = ontem && dentro(ontem, agora.minutos + 1440);
+    if (st) return st;
 
     var hoje = sem[agora.dia];
-    if (hoje && agora.minutos >= hoje.abre && agora.minutos < hoje.fecha) {
-      return { aberto: true, texto: "Aberto agora · até umas " + horaLegivel(hoje.fecha) };
-    }
+    st = hoje && dentro(hoje, agora.minutos);
+    if (st) return st;
     if (hoje && agora.minutos < hoje.abre) {
-      return { aberto: false, texto: "Fechado agora · abre hoje às " + horaLegivel(hoje.abre) };
+      return { estado: "fechado", texto: "Fechado agora · abre hoje às " + horaLegivel(hoje.abre) };
     }
     for (var d = 1; d <= 7; d++) {
       var faixa = sem[(agora.dia + d) % 7];
       if (faixa) {
         var quando = d === 1 ? "amanhã" : DIAS_EXIBICAO[(agora.dia + d) % 7];
-        return {
-          aberto: false,
-          texto: "Fechado agora · abre " + quando + " às " + horaLegivel(faixa.abre),
-        };
+        return { estado: "fechado", texto: "Fechado agora · abre " + quando + " às " + horaLegivel(faixa.abre) };
       }
     }
     return null;
+  }
+
+  /** "almoco", "jantar" ou "". As refeições da Kaká valem nos dias em que o bar abre. */
+  function refeicaoAgora(dados) {
+    if (!dados) return "";
+    var agora = agoraNoBar();
+    if (!semana(dados.horarios)[agora.dia]) return "";
+    var opcoes = { almoco: dados.sobre.refeicoes_almoco, jantar: dados.sobre.refeicoes_jantar };
+    for (var k in opcoes) {
+      var f = lerFaixa(opcoes[k]);
+      if (f && agora.minutos >= f.abre && agora.minutos < f.fecha) return k;
+    }
+    return "";
+  }
+
+  function horariosRefeicoes(sobre) {
+    return [
+      ["almoco", "Almoço", txt(sobre.refeicoes_almoco)],
+      ["jantar", "Jantar", txt(sobre.refeicoes_jantar)],
+    ].filter(function (l) {
+      return l[2];
+    });
   }
 
   // ---------- renderização ----------
 
   function renderStatus(dados) {
     var alvo = document.getElementById("status");
-    var st = textoStatus(dados.horarios);
+    var st = textoStatus(dados.horarios, dados.sobre);
     alvo.className = "status";
-    if (!st) {
-      alvo.textContent = "";
-      return;
-    }
-    alvo.classList.add(st.aberto ? "status--aberto" : "status--fechado");
+    alvo.textContent = "";
+    if (!st) return;
+    alvo.classList.add("status--" + st.estado);
     alvo.textContent = st.texto;
+    var whats = linkWhatsapp(dados.sobre);
+    if (st.estado === "talvez" && whats) {
+      alvo.appendChild(document.createTextNode(" · "));
+      alvo.appendChild(el("a", { href: whats, target: "_blank", rel: "noopener", texto: "pergunta no WhatsApp" }));
+    }
   }
 
   function renderHorarios(dados) {
@@ -185,6 +238,28 @@
     var aviso = document.getElementById("aviso-horario");
     aviso.textContent = txt(dados.sobre.aviso_horario);
     aviso.hidden = !aviso.textContent;
+    renderHorarioRefeicoes(dados);
+  }
+
+  function renderHorarioRefeicoes(dados) {
+    var s = dados.sobre;
+    var bloco = document.getElementById("horario-refeicoes");
+    var lista = document.getElementById("horarios-refeicoes");
+    var linhas = horariosRefeicoes(s);
+    bloco.hidden = !linhas.length;
+    if (!linhas.length) return;
+    var nome = txt(s.refeicoes_nome);
+    document.getElementById("titulo-refeicoes").textContent = "Refeições" + (nome ? " · " + nome : "");
+    var dias = document.getElementById("dias-refeicoes");
+    dias.textContent = txt(s.refeicoes_dias);
+    dias.hidden = !dias.textContent;
+    var agora = refeicaoAgora(dados);
+    lista.innerHTML = "";
+    linhas.forEach(function (l) {
+      var nomeLinha = el("span", { classe: "dia", texto: l[1] });
+      if (agora === l[0]) nomeLinha.appendChild(el("span", { classe: "selo-agora", texto: "servindo agora" }));
+      lista.appendChild(el("li", null, [nomeLinha, el("span", { classe: "hora", texto: l[2] })]));
+    });
   }
 
   /**
@@ -319,13 +394,29 @@
     if (!/refeic|almoco/.test(grupo.id)) return null;
     var texto = txt(sobre.refeicoes_texto);
     var ifood = txt(sobre.ifood);
-    if (!texto && !ifood) return null;
-    var p = el("p", { classe: "grupo__nota", texto: texto });
-    if (ifood) {
-      if (texto) p.appendChild(document.createTextNode(" "));
-      p.appendChild(el("a", { href: ifood, target: "_blank", rel: "noopener", texto: "Pedir no iFood →" }));
+    var horarios = horariosRefeicoes(sobre);
+    if (!texto && !ifood && !horarios.length) return null;
+
+    var bloco = el("div", { classe: "grupo__notas" });
+    if (texto || ifood) {
+      var p = el("p", { classe: "grupo__nota", texto: texto });
+      if (ifood) {
+        if (texto) p.appendChild(document.createTextNode(" "));
+        p.appendChild(el("a", { href: ifood, target: "_blank", rel: "noopener", texto: "Pedir no iFood →" }));
+      }
+      bloco.appendChild(p);
     }
-    return p;
+    if (horarios.length) {
+      var agora = refeicaoAgora(dadosAtuais);
+      var linha = el("p", { classe: "grupo__horas" });
+      horarios.forEach(function (h, i) {
+        if (i) linha.appendChild(document.createTextNode(" · "));
+        linha.appendChild(el("span", { texto: h[1] + " " + h[2] }));
+        if (agora === h[0]) linha.appendChild(el("span", { classe: "selo-agora", texto: "servindo agora" }));
+      });
+      bloco.appendChild(linha);
+    }
+    return bloco;
   }
 
   function renderCardapio(dados) {
@@ -384,6 +475,13 @@
     });
   }
 
+  function linkWhatsapp(sobre) {
+    var n = soDigitos(sobre.whatsapp);
+    if (!n) return "";
+    if (n.indexOf("55") !== 0) n = "55" + n;
+    return "https://wa.me/" + n;
+  }
+
   function definirLink(id, href) {
     var a = document.getElementById(id);
     if (!a) return;
@@ -409,9 +507,7 @@
     definirLink("link-maps-topo", maps);
     definirLink("link-avaliar", txt(s.avaliar) || maps);
 
-    var whats = soDigitos(s.whatsapp);
-    if (whats && whats.indexOf("55") !== 0) whats = "55" + whats;
-    definirLink("link-whatsapp", whats ? "https://wa.me/" + whats : "");
+    definirLink("link-whatsapp", linkWhatsapp(s));
 
     var insta = txt(s.instagram).replace(/^@/, "");
     if (insta && insta.indexOf("http") !== 0) insta = "https://instagram.com/" + insta;
@@ -455,7 +551,10 @@
     });
   }
 
+  var dadosAtuais = null;
+
   function render(dados) {
+    dadosAtuais = dados;
     renderStatus(dados);
     renderCardapio(dados);
     renderFotos(dados);
@@ -542,8 +641,8 @@
   render(mesclar(lerCache()));
   buscarPlanilha();
 
-  // Atualiza o "aberto agora" sem precisar recarregar a página.
+  // Atualiza "aberto agora" e "servindo agora" sem precisar recarregar a página.
   setInterval(function () {
-    renderStatus(mesclar(lerCache()));
+    if (dadosAtuais) render(dadosAtuais);
   }, 60000);
 })();

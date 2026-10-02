@@ -29,6 +29,11 @@ var EXPLICACAO_SOBRE = {
   maps: "Link do bar no Google Maps (botão Compartilhar do Maps).",
   avaliar: "Link que abre a tela de avaliar no Google. Não mexa se não souber.",
   aviso_horario: "Frase embaixo dos horários. Vazio = some.",
+  fecha_no_maximo: "Até que horas o bar PODE ficar aberto. Depois do horário normal e antes desta hora, o site mostra \"Pode estar aberto\". Vazio = desliga.",
+  refeicoes_nome: "Quem faz as refeições (aparece no título do horário delas).",
+  refeicoes_dias: "Dias das refeições, em texto (ex.: Terça a domingo).",
+  refeicoes_almoco: "Horário do almoço (ex.: 12h às 16h). Vazio = some.",
+  refeicoes_jantar: "Horário do jantar (ex.: 19h às 21h). Vazio = some.",
   refeicoes_texto: "Frase que aparece na seção Refeições. Vazio = some.",
   ifood: "Link da Kaká no iFood. Preenchido = aparece o botão \"Pedir no iFood\".",
   instagram: "Ex.: @bardozaza. Preenchido = aparece o botão do Instagram.",
@@ -46,6 +51,7 @@ function doGet(e) {
   }
 
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+  atualizarPlanilha(ss);
   var dados = {
     cardapio: lerTabela(acharOuCriar(ss, "cardapio")),
     horarios: lerTabela(acharOuCriar(ss, "horarios")),
@@ -56,6 +62,46 @@ function doGet(e) {
   var texto = JSON.stringify(dados);
   cache.put(CACHE_KEY, texto, CACHE_SEGUNDOS);
   return json(texto);
+}
+
+/**
+ * Chave nova do site (aba Sobre) entra sozinha na planilha, com o valor
+ * padrão, para quem edita saber que ela existe.
+ */
+function atualizarPlanilha(ss) {
+  var sh = acharOuCriar(ss, "sobre");
+  var existentes = lerChaveValor(sh);
+  var novas = Object.keys(DADOS_PADRAO.sobre)
+    .filter(function (k) {
+      return !(k in existentes);
+    })
+    .map(function (k) {
+      return [k, DADOS_PADRAO.sobre[k], EXPLICACAO_SOBRE[k] || ""];
+    });
+  if (novas.length) {
+    var ini = sh.getLastRow() + 1;
+    sh.getRange(ini, 1, novas.length, 3).setValues(novas);
+    sh.getRange(ini, 1, novas.length, 1).setFontColor("#888888");
+    sh.getRange(ini, 3, novas.length, 1).setFontColor("#888888").setFontStyle("italic");
+  }
+
+  // Out/2026: o bar passou a fechar 22h (antes 23h). Só troca o que ainda
+  // está com o valor antigo, e uma vez só.
+  var props = PropertiesService.getScriptProperties();
+  if (!props.getProperty("migracao_22h")) {
+    var hs = acharOuCriar(ss, "horarios");
+    var valores = hs.getDataRange().getValues();
+    for (var i = 1; i < valores.length; i++) {
+      if (String(valores[i][1]).trim() === "12h às 23h") hs.getRange(i + 1, 2).setValue("12h às 22h");
+    }
+    var linhas = sh.getDataRange().getValues();
+    for (var j = 1; j < linhas.length; j++) {
+      if (normalizar(linhas[j][0]) === "aviso_horario" && /23h/.test(String(linhas[j][1]))) {
+        sh.getRange(j + 1, 2).setValue(DADOS_PADRAO.sobre.aviso_horario);
+      }
+    }
+    props.setProperty("migracao_22h", "feita");
+  }
 }
 
 /** Toda edição na planilha limpa o cache: o site mostra a mudança na hora. */
