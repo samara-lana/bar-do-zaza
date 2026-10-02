@@ -8,6 +8,8 @@ Site do Bar do Zazá (Contagem/MG): cardápio, horário de funcionamento, locali
 
 **Pelo celular:** abra `/admin/` no site (https://samara-lana.github.io/bar-do-zaza/admin/) e entre com a senha. Dá pra marcar item em falta, editar nome/descrição/preços, criar e excluir itens e seções. No celular, use "Adicionar à tela inicial" pra abrir como app. A senha fica só no Google (hash nas Propriedades do script); pra trocar, use o menu **Site do Zazá → Trocar senha do admin** na planilha.
 
+**Comandas:** a aba Comandas do admin substitui o caderninho. Escreva o nome do cliente (nomes já usados aparecem pra tocar), toque nos itens pra lançar (+1), feche a conta como "Recebido" ou "Pendurar no fiado". As comandas ficam salvas no próprio celular e funcionam sem internet; uma cópia vai pra aba `Comandas` da planilha (não edite essa aba à mão). A aba Vendas mostra o recebido por dia, semana e mês e o fiado em aberto.
+
 **Pela planilha:** abra a planilha **"Bar do Zazá · site"** no Google Drive e edite. A mudança aparece no site em segundos (é só recarregar a página).
 
 | Aba        | O que controla                                                                                       |

@@ -27,7 +27,7 @@
       <form class="login__caixa" id="form-login" autocomplete="on">
         <p class="hero__eyebrow">Bar do</p>
         <h1 class="hero__logo login__logo">Zazá</h1>
-        <p class="login__sub">Área de edição do cardápio</p>
+        <p class="login__sub">Comandas e cardápio</p>
         <label class="campo">
           <span>Senha</span>
           <input
@@ -44,18 +44,32 @@
       </form>
     </section>
 
-    <!-- Cardápio -->
-    <section id="tela-cardapio" hidden>
-      <header class="barra">
-        <h1 class="barra__titulo">Cardápio</h1>
+    <!-- App (depois do login) -->
+    <section id="tela-app" hidden>
+      <header class="barra" id="barra">
+        <h1 class="barra__titulo">Zazá</h1>
+        <span class="sync" id="sync" role="status"></span>
         <a class="barra__link" href="../" target="_blank" rel="noopener">Ver site</a>
         <button class="barra__link" type="button" id="botao-sair">Sair</button>
       </header>
-      <nav class="abas" id="abas" aria-label="Seções"></nav>
-      <p class="dica">Toque em <b>Em falta</b> quando acabar. Toque no item para editar.</p>
-      <div id="lista" class="admin-lista"></div>
-      <div class="admin-rodape">
-        <button class="botao botao--largo" type="button" id="botao-nova-secao">+ Nova seção</button>
+      <nav class="menu" id="menu" aria-label="Seções do admin">
+        <a href="#comandas" data-pagina="comandas">Comandas</a>
+        <a href="#cardapio" data-pagina="cardapio">Cardápio</a>
+        <a href="#vendas" data-pagina="vendas">Vendas</a>
+      </nav>
+
+      <div class="pagina" id="pagina-comandas" hidden></div>
+      <div class="pagina" id="pagina-comanda" hidden></div>
+      <div class="pagina" id="pagina-conta" hidden></div>
+      <div class="pagina" id="pagina-vendas" hidden></div>
+
+      <div class="pagina" id="pagina-cardapio" hidden>
+        <nav class="abas" id="abas" aria-label="Seções"></nav>
+        <p class="dica">Toque em <b>Em falta</b> quando acabar. Toque no item para editar.</p>
+        <div id="lista" class="admin-lista"></div>
+        <div class="admin-rodape">
+          <button class="botao botao--largo" type="button" id="botao-nova-secao">+ Nova seção</button>
+        </div>
       </div>
     </section>
 
@@ -109,8 +123,13 @@
     </dialog>
 
     <div class="aviso" id="aviso" role="status" aria-live="polite"></div>
+    <div class="desfazer" id="desfazer" role="status" aria-live="polite">
+      <span id="desfazer-texto"></span>
+      <button type="button" id="desfazer-botao">Desfazer</button>
+    </div>
 
     <script src="../assets/config.js"></script>
+    <script src="comandas.js"></script>
     <script src="admin.js"></script>
   </body>
 </html>

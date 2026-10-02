@@ -6,6 +6,7 @@
  *   { acao: "excluirItem", token, original }      -> { cardapio }
  *   { acao: "emFalta", token, secao, nome, opcao, valor } -> { cardapio }
  *   { acao: "sair", token }
+ *   salvarComandas / listarComandas: ver Comandas.js
  *
  * Segurança:
  *  - A senha nunca fica no código do site nem aqui: só o hash (SHA-256 com
@@ -47,6 +48,9 @@ function executarAcao(req) {
   if (req.acao === "definirSenha") return definirSenhaInicial(req.senha);
   if (req.acao === "login") return login(req.senha);
   if (!tokenValido(req.token)) return { ok: false, erro: "sessao", mensagem: "Sua sessão expirou. Entre de novo." };
+
+  if (req.acao === "salvarComandas") return salvarComandas(req.comandas);
+  if (req.acao === "listarComandas") return listarComandas(req.dias);
 
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = acharOuCriar(ss, "cardapio");

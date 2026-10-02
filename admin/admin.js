@@ -120,17 +120,42 @@
   // ---------- telas ----------
 
   function mostrarLogin(msg) {
-    $("tela-cardapio").hidden = true;
+    $("tela-app").hidden = true;
     $("tela-login").hidden = false;
     $("erro-login").textContent = msg || "";
     $("senha").value = "";
     $("senha").focus();
   }
 
-  function mostrarCardapio() {
+  function mostrarApp() {
     $("tela-login").hidden = true;
-    $("tela-cardapio").hidden = false;
+    $("tela-app").hidden = false;
   }
+
+  // ---------- navegação (#comandas, #comanda/ID, #conta/ID, #cardapio, #vendas) ----------
+  // Pelo endereço, pra o "voltar" do celular funcionar.
+
+  function rota() {
+    if ($("tela-app").hidden) return;
+    var partes = location.hash.replace(/^#/, "").split("/");
+    var pagina = partes[0] || "comandas";
+    if (!$("pagina-" + pagina)) pagina = "comandas";
+    Array.prototype.forEach.call(document.querySelectorAll(".pagina"), function (p) {
+      p.hidden = p.id !== "pagina-" + pagina;
+    });
+    // Dentro de uma comanda o menu some: a tela é só dela
+    var dentro = pagina === "comanda" || pagina === "conta";
+    $("menu").hidden = dentro;
+    $("barra").hidden = dentro;
+    Array.prototype.forEach.call($("menu").children, function (a) {
+      a.setAttribute("aria-current", a.getAttribute("data-pagina") === pagina ? "page" : "false");
+    });
+    if (pagina === "cardapio") render();
+    else window.Comandas.mostrar(pagina, decodeURIComponent(partes[1] || ""));
+    window.scrollTo(0, 0);
+  }
+
+  window.addEventListener("hashchange", rota);
 
   $("form-login").addEventListener("submit", function (ev) {
     ev.preventDefault();
@@ -163,8 +188,9 @@
     return api("listar")
       .then(function (r) {
         linhas = r.cardapio || [];
-        mostrarCardapio();
-        render();
+        mostrarApp();
+        rota();
+        window.Comandas.sincronizarAoEntrar();
       })
       .catch(function (e) {
         if (!$("tela-login").hidden) return;
@@ -207,7 +233,16 @@
     lista.innerHTML = "";
     abas.innerHTML = "";
     secoes.forEach(function (s) {
-      abas.appendChild(el("a", { classe: "aba", href: "#" + s.id, texto: s.titulo }));
+      abas.appendChild(
+        el("button", {
+          classe: "aba",
+          type: "button",
+          texto: s.titulo,
+          onclick: function () {
+            $(s.id).scrollIntoView({ behavior: "smooth" });
+          },
+        }),
+      );
       var bloco = el("section", { classe: "admin-secao", id: s.id }, [
         el("h2", { classe: "admin-secao__titulo", texto: s.titulo }),
       ]);
@@ -465,6 +500,20 @@
         salvando(false);
       });
   });
+
+  // ---------- o que as comandas (comandas.js) usam daqui ----------
+
+  window.Zaza = {
+    api: api,
+    el: el,
+    txt: txt,
+    slug: slug,
+    marcado: marcado,
+    avisar: avisar,
+    linhas: function () {
+      return linhas;
+    },
+  };
 
   // ---------- início ----------
 
