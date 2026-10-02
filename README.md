@@ -28,7 +28,7 @@ Dicas:
 - **Esconder um item** sem perder a linha: apague o `nome`.
 - **iFood / Instagram**: preencha na aba `Sobre` e o botão aparece sozinho.
 - Não renomeie as abas nem os cabeçalhos. Se apagar uma aba sem querer, use o menu **Site do Zazá → Criar abas que estiverem faltando** (ela volta com o conteúdo padrão).
-- Se a planilha demorar ou sair do ar, o site mostra a última versão que aquele celular carregou ou a cópia que o GitHub tira da planilha de hora em hora (`assets/dados-planilha.js`), a que for mais nova. Sem nenhuma das duas, usa `assets/dados-padrao.js`.
+- Se a planilha demorar ou sair do ar, o site mostra a última versão que aquele celular carregou ou a cópia que o GitHub tira da planilha a cada 15 minutos (`assets/dados-planilha.js`), a que for mais nova. Sem nenhuma das duas, usa `assets/dados-padrao.js`.
 
 ## Estrutura
 
@@ -38,7 +38,7 @@ assets/style.css        visual
 assets/app.js           monta o cardápio, horário e "aberto agora"
 assets/config.js        URL do Web App da planilha
 assets/dados-padrao.js  conteúdo padrão (último recurso, se não houver cópia da planilha)
-assets/dados-planilha.js cópia da planilha, GERADA de hora em hora pela Action (não edite)
+assets/dados-planilha.js cópia da planilha, GERADA a cada 15 minutos pela Action (não edite)
 .github/               Action "Cópia da planilha" (rodar na hora: aba Actions → Run workflow)
 admin/                  área de edição pelo celular (fala com o Apps Script)
 fotos/                  fotos servidas pelo próprio site

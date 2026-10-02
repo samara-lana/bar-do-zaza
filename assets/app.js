@@ -620,7 +620,7 @@
 
   /**
    * Entre o que este celular guardou e a cópia que a Action do GitHub tira da
-   * planilha de hora em hora (assets/dados-planilha.js), fica a mais recente.
+   * planilha a cada 15 minutos (assets/dados-planilha.js), fica a mais recente.
    * Assim quem abre o site pela primeira vez não cai no padrão velho do código.
    */
   function maisRecente(a, b) {

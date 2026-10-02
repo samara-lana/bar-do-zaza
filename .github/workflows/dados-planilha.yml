@@ -1,10 +1,10 @@
 name: Cópia da planilha
 
-# De hora em hora guarda no site uma cópia do conteúdo da planilha, para quem
+# A cada 15 minutos guarda no site uma cópia do conteúdo da planilha, para quem
 # abre o site pela primeira vez não ver um cardápio velho quando o Google demora.
 on:
   schedule:
-    - cron: "17 * * * *"
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
 
 permissions:
