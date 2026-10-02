@@ -16,7 +16,7 @@ Site do Bar do Zazá (Contagem/MG): cardápio, horário de funcionamento, locali
 | ---------- | ---------------------------------------------------------------------------------------------------- |
 | `Cardapio` | Os itens. Colunas `secao`, `nome`, `opcao`, `descricao`, `preco`, `em_falta`.                        |
 | `Fotos`    | Galeria do site. `foto` = link (Google Drive compartilhado serve) ou arquivo da pasta `fotos/`; `legenda` opcional. |
-| `Horarios` | Um dia por linha. `horario` tipo `12h às 23h`, ou `Fechado`. `obs` é opcional.                       |
+| `Horarios` | Um dia por linha. `horario` tipo `12h às 23h`; com pausa, `12h às 14h; 16h às 23h`; ou `Fechado`. `obs` é opcional. |
 | `Sobre`    | Endereço, telefone, links (Maps, avaliação, iFood, Instagram) e frases do site. Edite só a coluna `valor`. |
 
 Dicas:

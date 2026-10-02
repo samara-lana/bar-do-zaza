@@ -29,7 +29,6 @@ var EXPLICACAO_SOBRE = {
   maps: "Link do bar no Google Maps (botão Compartilhar do Maps).",
   avaliar: "Link que abre a tela de avaliar no Google. Não mexa se não souber.",
   aviso_horario: "Frase embaixo dos horários. Vazio = some.",
-  fecha_no_maximo: "Até que horas o bar PODE ficar aberto. Depois do horário normal e antes desta hora, o site mostra \"Pode estar aberto\". Vazio = desliga.",
   refeicoes_nome: "Quem faz as refeições (aparece no título do horário delas).",
   refeicoes_dias: "Dias das refeições, em texto (ex.: Terça a domingo).",
   refeicoes_almoco: "Horário do almoço (ex.: 12h às 16h). Vazio = some.",
@@ -101,6 +100,24 @@ function atualizarPlanilha(ss) {
       }
     }
     props.setProperty("migracao_22h", "feita");
+  }
+
+  // Out/2026: horário com pausa depois do almoço (11h às 14h; 16h às 23h).
+  // Sai o "fecha no máximo" e o aviso de "depois das 22h", que não valem mais.
+  if (!props.getProperty("migracao_turnos")) {
+    var hv = acharOuCriar(ss, "horarios").getDataRange().getValues();
+    for (var h = 1; h < hv.length; h++) {
+      if (/^12h às 14h; 16h às 23h$/.test(String(hv[h][1]).trim())) {
+        acharOuCriar(ss, "horarios").getRange(h + 1, 2).setValue("11h às 14h; 16h às 23h");
+      }
+    }
+    var ls = sh.getDataRange().getValues();
+    for (var k = ls.length - 1; k >= 1; k--) {
+      var chave = normalizar(ls[k][0]);
+      if (chave === "fecha_no_maximo") sh.deleteRow(k + 1);
+      else if (chave === "aviso_horario" && /depois das 22h/i.test(String(ls[k][1]))) sh.getRange(k + 1, 2).setValue("");
+    }
+    props.setProperty("migracao_turnos", "feita");
   }
 }
 
@@ -192,7 +209,7 @@ function criarAba(ss, chave) {
     sh.getRange("B1").setNote("Opcional. Texto curto embaixo da foto (ex.: Torresmo com batata).");
   } else if (chave === "horarios") {
     sh.setColumnWidth(1, 120).setColumnWidth(2, 140).setColumnWidth(3, 320);
-    sh.getRange("B1").setNote("Ex.: 12h às 23h. Escreva Fechado nos dias que não abre.");
+    sh.getRange("B1").setNote("Ex.: 12h às 23h. Com pausa: 12h às 14h; 16h às 23h. Escreva Fechado nos dias que não abre.");
     sh.getRange("C1").setNote("Opcional. Uma observação curta embaixo do horário daquele dia.");
   } else {
     sh.setColumnWidth(1, 140).setColumnWidth(2, 420).setColumnWidth(3, 420);

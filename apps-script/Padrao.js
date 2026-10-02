@@ -1,5 +1,4 @@
 // GERADO a partir de assets/dados-padrao.js: não edite aqui.
-// Só é usado para preencher abas que ainda não existem na planilha.
 var DADOS_PADRAO = {
   sobre: {
     nome: "Bar do Zazá",
@@ -7,8 +6,7 @@ var DADOS_PADRAO = {
     whatsapp: "(31) 99540-8146",
     maps: "https://maps.app.goo.gl/gTWJhmhasQZLFybF7",
     avaliar: "https://search.google.com/local/writereview?placeid=ChIJI2dlEI3rpgARwIliNaXXrlI",
-    aviso_horario: "Depois das 22h depende do movimento: às vezes vai até meia-noite.",
-    fecha_no_maximo: "24h",
+    aviso_horario: "",
     refeicoes_texto:
       "O almoço e a janta são da Kaká Comida Caseira, servidos aqui no bar e também no iFood.",
     refeicoes_nome: "Kaká Comida Caseira",
@@ -20,15 +18,15 @@ var DADOS_PADRAO = {
   },
   horarios: [
     { dia: "Segunda", horario: "Fechado", obs: "" },
-    { dia: "Terça", horario: "12h às 22h", obs: "" },
-    { dia: "Quarta", horario: "12h às 22h", obs: "" },
-    { dia: "Quinta", horario: "12h às 22h", obs: "" },
-    { dia: "Sexta", horario: "12h às 22h", obs: "" },
-    { dia: "Sábado", horario: "12h às 22h", obs: "" },
-    { dia: "Domingo", horario: "12h às 22h", obs: "" },
+    { dia: "Terça", horario: "11h às 14h; 16h às 23h", obs: "" },
+    { dia: "Quarta", horario: "11h às 14h; 16h às 23h", obs: "" },
+    { dia: "Quinta", horario: "11h às 14h; 16h às 23h", obs: "" },
+    { dia: "Sexta", horario: "11h às 14h; 16h às 23h", obs: "" },
+    { dia: "Sábado", horario: "11h às 14h; 16h às 23h", obs: "" },
+    { dia: "Domingo", horario: "11h às 14h; 16h às 23h", obs: "" },
   ],
   // `foto`: caminho de um arquivo da pasta fotos/ ou link (Google Drive compartilhado também serve)
-  fotos: [{ foto: "fotos/almondegas.jpg", legenda: "Almôndegas" }],
+  fotos: [],
   // prettier-ignore
   cardapio: [
     { secao: "Porções", nome: "Filé de tilápia", opcao: "", descricao: "", preco: "50" },

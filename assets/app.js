@@ -3,7 +3,7 @@
 
   var FUSO = "America/Sao_Paulo";
   var CHAVE_CACHE = "zaza_dados_v2";
-  var TEMPO_LIMITE_MS = 10000;
+  var TEMPO_LIMITE_MS = 45000;
 
   var DIAS = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
   var DIAS_EXIBICAO = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
@@ -94,14 +94,30 @@
     return -1;
   }
 
-  /** "12h às 23h", "12:00 - 23:30", "18h–2h" -> {abre, fecha} em minutos. */
+  var FAIXA = /(\d{1,2})(?:[:h](\d{2}))?\s*h?\s*(?:às|as|a|-|–|—|até|ate)\s*(\d{1,2})(?:[:h](\d{2}))?/gi;
+
+  /**
+   * "12h às 23h", "12:00 - 23:30", "18h–2h" -> [{abre, fecha}] em minutos.
+   * Dia com mais de um turno ("12h às 14h; 16h às 23h") vira uma faixa por turno.
+   */
+  function lerFaixas(horario) {
+    var faixas = [];
+    var m;
+    FAIXA.lastIndex = 0;
+    while ((m = FAIXA.exec(txt(horario)))) {
+      var abre = Number(m[1]) * 60 + Number(m[2] || 0);
+      var fecha = Number(m[3]) * 60 + Number(m[4] || 0);
+      if (fecha <= abre) fecha += 24 * 60; // fecha depois da meia-noite
+      faixas.push({ abre: abre, fecha: fecha });
+    }
+    return faixas.sort(function (a, b) {
+      return a.abre - b.abre;
+    });
+  }
+
+  /** Só a primeira faixa (horário das refeições). */
   function lerFaixa(horario) {
-    var m = txt(horario).match(/(\d{1,2})(?:[:h](\d{2}))?\s*h?\s*(?:às|as|a|-|–|—|até|ate)\s*(\d{1,2})(?:[:h](\d{2}))?/i);
-    if (!m) return null;
-    var abre = Number(m[1]) * 60 + Number(m[2] || 0);
-    var fecha = Number(m[3]) * 60 + Number(m[4] || 0);
-    if (fecha <= abre) fecha += 24 * 60; // fecha depois da meia-noite
-    return { abre: abre, fecha: fecha };
+    return lerFaixas(horario)[0] || null;
   }
 
   function horaLegivel(minutos) {
@@ -110,50 +126,28 @@
     return h + "h" + (m ? String(m).padStart(2, "0") : "");
   }
 
-  /** Faixa de cada dia da semana (índice 0..6), ou null quando fechado. */
+  /** Turnos de cada dia da semana (índice 0..6), ou null quando fechado. */
   function semana(horarios) {
     var s = [null, null, null, null, null, null, null];
     horarios.forEach(function (h) {
       var i = indiceDoDia(h.dia);
-      if (i >= 0) s[i] = lerFaixa(h.horario);
+      var faixas = lerFaixas(h.horario);
+      if (i >= 0 && faixas.length) s[i] = faixas;
     });
     return s;
   }
 
-  /** "24h", "0h", "23:30" -> minutos; meia-noite vira 1440 (fim do dia). */
-  function lerHora(v) {
-    var m = txt(v).match(/(\d{1,2})(?:[:h](\d{2}))?/);
-    if (!m) return null;
-    var min = Number(m[1]) * 60 + Number(m[2] || 0);
-    return min === 0 || min === 1440 ? 1440 : min;
-  }
-
-  /**
-   * Situação agora:
-   *  - aberto: dentro do horário da planilha;
-   *  - talvez: passou do horário, mas ainda antes de `fecha_no_maximo`
-   *    (depende do movimento);
-   *  - fechado.
-   */
-  function textoStatus(horarios, sobre) {
+  /** Situação agora: aberto (dentro de um turno da planilha) ou fechado. */
+  function textoStatus(horarios) {
     var sem = semana(horarios);
     if (!sem.some(Boolean)) return null;
     var agora = agoraNoBar();
-    var maximo = lerHora(sobre.fecha_no_maximo);
 
-    function limite(faixa) {
-      if (!maximo) return faixa.fecha;
-      var lim = maximo <= faixa.abre ? maximo + 1440 : maximo;
-      return Math.max(lim, faixa.fecha);
-    }
-
-    function dentro(faixa, minutos) {
-      if (minutos >= faixa.abre && minutos < faixa.fecha) {
-        var ate = limite(faixa) > faixa.fecha ? "até pelo menos " : "até ";
-        return { estado: "aberto", texto: "Aberto agora · " + ate + horaLegivel(faixa.fecha) };
-      }
-      if (minutos >= faixa.fecha && minutos < limite(faixa)) {
-        return { estado: "talvez", texto: "Pode estar aberto · depende do movimento" };
+    function dentro(turnos, minutos) {
+      for (var i = 0; i < turnos.length; i++) {
+        if (minutos >= turnos[i].abre && minutos < turnos[i].fecha) {
+          return { estado: "aberto", texto: "Aberto agora · até " + horaLegivel(turnos[i].fecha) };
+        }
       }
       return null;
     }
@@ -166,14 +160,21 @@
     var hoje = sem[agora.dia];
     st = hoje && dentro(hoje, agora.minutos);
     if (st) return st;
-    if (hoje && agora.minutos < hoje.abre) {
-      return { estado: "fechado", texto: "Fechado agora · abre hoje às " + horaLegivel(hoje.abre) };
+    var proximo = (hoje || []).filter(function (t) {
+      return t.abre > agora.minutos;
+    })[0];
+    if (proximo) {
+      var jaAbriuHoje = hoje[0].abre < agora.minutos;
+      return {
+        estado: "fechado",
+        texto: "Fechado agora · " + (jaAbriuHoje ? "volta hoje às " : "abre hoje às ") + horaLegivel(proximo.abre),
+      };
     }
     for (var d = 1; d <= 7; d++) {
-      var faixa = sem[(agora.dia + d) % 7];
-      if (faixa) {
+      var turnos = sem[(agora.dia + d) % 7];
+      if (turnos) {
         var quando = d === 1 ? "amanhã" : DIAS_EXIBICAO[(agora.dia + d) % 7];
-        return { estado: "fechado", texto: "Fechado agora · abre " + quando + " às " + horaLegivel(faixa.abre) };
+        return { estado: "fechado", texto: "Fechado agora · abre " + quando + " às " + horaLegivel(turnos[0].abre) };
       }
     }
     return null;
@@ -205,17 +206,12 @@
 
   function renderStatus(dados) {
     var alvo = document.getElementById("status");
-    var st = textoStatus(dados.horarios, dados.sobre);
+    var st = textoStatus(dados.horarios);
     alvo.className = "status";
     alvo.textContent = "";
     if (!st) return;
     alvo.classList.add("status--" + st.estado);
     alvo.textContent = st.texto;
-    var whats = linkWhatsapp(dados.sobre);
-    if (st.estado === "talvez" && whats) {
-      alvo.appendChild(document.createTextNode(" · "));
-      alvo.appendChild(el("a", { href: whats, target: "_blank", rel: "noopener", texto: "pergunta no WhatsApp" }));
-    }
   }
 
   function renderHorarios(dados) {
@@ -225,11 +221,20 @@
     dados.horarios.forEach(function (h) {
       if (!txt(h.dia)) return;
       var horario = txt(h.horario) || "Fechado";
-      var fechado = !lerFaixa(horario);
+      var turnos = lerFaixas(horario);
       var classes = [];
-      if (fechado) classes.push("fechado");
+      if (!turnos.length) classes.push("fechado");
       if (indiceDoDia(h.dia) === hoje) classes.push("hoje");
-      var hora = el("span", { classe: "hora", texto: horario });
+      var hora = el("span", { classe: "hora" });
+      if (turnos.length > 1) {
+        // Almoço e noite: "12h às 14h · 16h às 23h", quebrando só entre os turnos.
+        turnos.forEach(function (t, i) {
+          if (i) hora.appendChild(document.createTextNode(" · "));
+          hora.appendChild(el("span", { classe: "turno", texto: horaLegivel(t.abre) + " às " + horaLegivel(t.fecha) }));
+        });
+      } else {
+        hora.textContent = horario;
+      }
       if (txt(h.obs)) hora.appendChild(el("small", { texto: txt(h.obs) }));
       lista.appendChild(
         el("li", { classe: classes.join(" ") }, [el("span", { classe: "dia", texto: txt(h.dia) }), hora]),

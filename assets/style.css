@@ -176,10 +176,6 @@ p {
   color: var(--vermelho);
 }
 
-.status--talvez {
-  color: var(--amarelo);
-}
-
 .status a {
   color: inherit;
   font-weight: 600;
@@ -647,6 +643,10 @@ p {
 
 .horarios .hora {
   text-align: right;
+}
+
+.horarios .turno {
+  white-space: nowrap;
 }
 
 .nota {
