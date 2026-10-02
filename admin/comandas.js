@@ -280,22 +280,28 @@
     return itens;
   }
 
-  /** Os 8 mais lançados nos últimos 30 dias; sem histórico, cervejas e porções. */
+  /**
+   * Os 8 mais lançados nos 30 dias ANTERIORES ao dia de hoje (sem histórico,
+   * cervejas e porções). O que se lança hoje só conta a partir de amanhã: os
+   * botões não podem mudar de lugar enquanto ele está tocando neles.
+   */
   function maisPedidos(itens) {
     var porChave = {};
     itens.forEach(function (i) {
       porChave[i.chave] = i;
     });
-    var limite = Date.now() - 30 * 864e5;
+    var fim = inicioDoDiaDoBar();
+    var limite = fim - 30 * 864e5;
     var conta = {};
     Object.keys(comandas).forEach(function (id) {
       (comandas[id].lancamentos || []).forEach(function (l) {
-        if (l.hora >= limite && porChave[l.chave]) conta[l.chave] = (conta[l.chave] || 0) + 1;
+        if (l.hora >= limite && l.hora < fim && porChave[l.chave]) conta[l.chave] = (conta[l.chave] || 0) + 1;
       });
     });
     var top = Object.keys(conta)
       .sort(function (a, b) {
-        return conta[b] - conta[a];
+        // empate: ordem do cardápio, pra nunca embaralhar
+        return conta[b] - conta[a] || itens.indexOf(porChave[a]) - itens.indexOf(porChave[b]);
       })
       .map(function (k) {
         return porChave[k];
@@ -380,6 +386,11 @@
       mudou(c);
       renderComanda(c.id, true);
     });
+  }
+
+  /** O "+" do consumido: mais uma do mesmo item, pelo mesmo preço. */
+  function maisUm(c, grupo) {
+    lancar(c, { chave: grupo.chave, nome: grupo.nome, preco: grupo.preco });
   }
 
   function tirarUm(c, grupo) {
@@ -668,18 +679,37 @@
     grupos.forEach(function (g) {
       conteudo.appendChild(
         el("div", { classe: "consumido" }, [
-          el("span", { classe: "consumido__qtd", texto: g.qtd + "×" }),
-          el("span", { classe: "consumido__nome" }, [g.nome, el("small", { texto: g.horas.join(", ") })]),
-          el("span", { classe: "consumido__valor", texto: dinheiro(g.total) }),
-          el("button", {
-            type: "button",
-            classe: "remover",
-            "aria-label": "Tirar um " + g.nome,
-            texto: "−",
-            onclick: function () {
-              tirarUm(c, g);
-            },
-          }),
+          el("span", { classe: "consumido__nome" }, [
+            g.nome,
+            el("small", {
+              // muitas da mesma: só as últimas horas (a conta mostra todas)
+              texto:
+                dinheiro(g.total) +
+                " · " +
+                (g.horas.length > 3 ? "últimas " + g.horas.slice(-3).join(", ") : g.horas.join(", ")),
+            }),
+          ]),
+          el("div", { classe: "passo", role: "group", "aria-label": "Quantidade de " + g.nome }, [
+            el("button", {
+              type: "button",
+              classe: "passo__botao",
+              "aria-label": "Tirar um " + g.nome,
+              texto: "−",
+              onclick: function () {
+                tirarUm(c, g);
+              },
+            }),
+            el("span", { classe: "passo__qtd", texto: String(g.qtd) }),
+            el("button", {
+              type: "button",
+              classe: "passo__botao",
+              "aria-label": "Mais um " + g.nome,
+              texto: "+",
+              onclick: function () {
+                maisUm(c, g);
+              },
+            }),
+          ]),
         ]),
       );
     });
@@ -790,6 +820,13 @@
   }
 
   // ---------- vendas ----------
+
+  /** Quando começou o dia do bar de hoje (5h da manhã; antes disso, 5h de ontem). */
+  function inicioDoDiaDoBar() {
+    var d = new Date(Date.now() - INICIO_DO_DIA_H * 3600e3);
+    d.setHours(INICIO_DO_DIA_H, 0, 0, 0);
+    return d.getTime();
+  }
 
   /** Dia "do bar": até 5h da manhã ainda é a noite anterior. */
   function diaDoBar(ms) {
@@ -920,8 +957,14 @@
     }
   }, 60000);
 
+  /** Cardápio novo chegou da planilha: só a tela de lançar depende dele. */
+  function cardapioAtualizado() {
+    if (atual.pagina === "comanda" && !$("pagina-comanda").hidden) renderComanda(atual.id, true);
+  }
+
   window.Comandas = {
     mostrar: mostrar,
+    cardapioAtualizado: cardapioAtualizado,
     sincronizarAoEntrar: sincronizarAoEntrar,
   };
 })();

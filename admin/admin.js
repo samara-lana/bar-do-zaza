@@ -4,6 +4,8 @@
   // Só o token da sessão fica no celular. A senha é conferida no Apps Script
   // (apps-script/Admin.js) e não aparece em lugar nenhum do código do site.
   var CHAVE_TOKEN = "zaza_admin_token";
+  // Cardápio guardado no celular: o admin abre na hora e atualiza por trás
+  var CHAVE_CARDAPIO = "zaza_admin_cardapio";
   var NOVA_SECAO = "__nova__";
 
   var linhas = [];
@@ -183,18 +185,51 @@
     mostrarLogin();
   });
 
+  function definirLinhas(novas) {
+    linhas = novas || [];
+    try {
+      localStorage.setItem(CHAVE_CARDAPIO, JSON.stringify(linhas));
+    } catch (e) {
+      /* sem espaço: só abre mais devagar na próxima vez */
+    }
+  }
+
+  function cardapioGuardado() {
+    try {
+      return JSON.parse(localStorage.getItem(CHAVE_CARDAPIO) || "null");
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function abrirApp() {
+    mostrarApp();
+    rota();
+    window.Comandas.sincronizarAoEntrar();
+  }
+
+  /**
+   * Com cardápio guardado, abre na hora e busca o atualizado por trás (a
+   * planilha leva uns segundos pra responder). Sem ele, espera a planilha.
+   */
   function carregar() {
-    carregando(true);
+    var guardado = cardapioGuardado();
+    if (guardado) {
+      linhas = guardado;
+      abrirApp();
+    } else {
+      carregando(true);
+    }
     return api("listar")
       .then(function (r) {
-        linhas = r.cardapio || [];
-        mostrarApp();
-        rota();
-        window.Comandas.sincronizarAoEntrar();
+        definirLinhas(r.cardapio);
+        if (!guardado) abrirApp();
+        else if (location.hash.indexOf("#cardapio") === 0) render();
+        else window.Comandas.cardapioAtualizado();
       })
       .catch(function (e) {
         if (!$("tela-login").hidden) return;
-        avisar(e.message, true);
+        avisar(guardado ? "Sem conexão: usando o cardápio salvo no celular." : e.message, !guardado);
       })
       .then(function () {
         carregando(false);
@@ -317,7 +352,7 @@
       chave.setAttribute("aria-busy", "true");
       api("emFalta", { secao: item.secao, nome: item.nome, opcao: v.opcao, valor: novo })
         .then(function (r) {
-          linhas = r.cardapio;
+          definirLinhas(r.cardapio);
           render();
           avisar(novo ? item.nome + " marcado como em falta" : item.nome + " voltou pro cardápio");
         })
@@ -469,7 +504,7 @@
     salvando(true);
     api("salvarItem", { original: editando, item: item })
       .then(function (r) {
-        linhas = r.cardapio;
+        definirLinhas(r.cardapio);
         render();
         fecharEditor();
         avisar("Salvo! Já está no site.");
@@ -488,7 +523,7 @@
     salvando(true);
     api("excluirItem", { original: editando })
       .then(function (r) {
-        linhas = r.cardapio;
+        definirLinhas(r.cardapio);
         render();
         fecharEditor();
         avisar("Item excluído.");
