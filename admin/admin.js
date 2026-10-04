@@ -1,9 +1,9 @@
 (function () {
   "use strict";
 
-  // Só o token da sessão fica no celular. A senha é conferida no Apps Script
-  // (apps-script/Admin.js) e não aparece em lugar nenhum do código do site.
-  var CHAVE_TOKEN = "zaza_admin_token";
+  // Só a sessão do Supabase fica no celular, nunca a senha. O e-mail do admin
+  // está em assets/config.js; na tela o Zazá digita só a senha.
+  var CHAVE_SESSAO = "zaza_admin_sessao";
   // Cardápio guardado no celular: o admin abre na hora e atualiza por trás
   var CHAVE_CARDAPIO = "zaza_admin_cardapio";
   var NOVA_SECAO = "__nova__";
@@ -74,48 +74,153 @@
     $("carregando").hidden = !sim;
   }
 
-  // ---------- API ----------
+  // ---------- API (Supabase) ----------
 
-  function token() {
+  // Sessão do Supabase Auth: o token de acesso vale 1 hora e é renovado
+  // sozinho com o refresh_token. Sem internet, a sessão continua guardada:
+  // as comandas seguem salvas no celular e vão quando a conexão voltar.
+  var TEMPO_LIMITE_MS = 20000;
+
+  function sessao() {
     try {
-      return localStorage.getItem(CHAVE_TOKEN) || "";
+      return JSON.parse(localStorage.getItem(CHAVE_SESSAO) || "null");
     } catch (e) {
-      return "";
+      return null;
     }
   }
 
-  function guardarToken(t) {
+  function guardarSessao(s) {
     try {
-      if (t) localStorage.setItem(CHAVE_TOKEN, t);
-      else localStorage.removeItem(CHAVE_TOKEN);
+      if (s) localStorage.setItem(CHAVE_SESSAO, JSON.stringify(s));
+      else localStorage.removeItem(CHAVE_SESSAO);
     } catch (e) {
       /* sem armazenamento: vai pedir a senha de novo na próxima vez */
     }
   }
 
-  /** text/plain evita a checagem extra de CORS que o Apps Script não responde. */
-  function api(acao, dados) {
-    var corpo = Object.assign({ acao: acao, token: token() }, dados || {});
-    return fetch(window.APPS_SCRIPT_URL, {
+  function sessaoExpirada(msg) {
+    guardarSessao(null);
+    mostrarLogin(msg || "Sua sessão expirou. Entre de novo.");
+    return new Error(msg || "Sua sessão expirou. Entre de novo.");
+  }
+
+  /** fetch com limite de tempo: rede ruim no bar não pode deixar o envio preso pra sempre. */
+  function buscar(caminho, opcoes) {
+    var controle = "AbortController" in window ? new AbortController() : null;
+    var timer = setTimeout(function () {
+      if (controle) controle.abort();
+    }, TEMPO_LIMITE_MS);
+    opcoes.signal = controle ? controle.signal : undefined;
+    opcoes.headers = Object.assign({ apikey: window.SUPABASE_ANON_KEY, "Content-Type": "application/json" }, opcoes.headers);
+    return fetch(window.SUPABASE_URL + caminho, opcoes)
+      .catch(function () {
+        throw new Error("Sem internet? Não consegui falar com o servidor.");
+      })
+      .then(function (r) {
+        clearTimeout(timer);
+        return r.json().catch(function () {
+          return null;
+        }).then(function (corpo) {
+          return { status: r.status, corpo: corpo };
+        });
+      });
+  }
+
+  function entrar(senha) {
+    return buscar("/auth/v1/token?grant_type=password", {
       method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(corpo),
-    })
-      .then(function (r) {
-        if (!r.ok) throw new Error("Sem conexão com a planilha (" + r.status + ").");
-        return r.json();
+      body: JSON.stringify({ email: window.ADMIN_EMAIL, password: senha }),
+    }).then(function (r) {
+      if (r.status === 400 || r.status === 401) throw new Error("Senha errada.");
+      if (r.status === 429) throw new Error("Muitas tentativas. Espere alguns minutos.");
+      if (r.status >= 400 || !r.corpo || !r.corpo.access_token) throw new Error("Não consegui entrar (" + r.status + ").");
+      guardarSessao(novaSessao(r.corpo));
+    });
+  }
+
+  function novaSessao(c) {
+    return { access_token: c.access_token, refresh_token: c.refresh_token, expira: Date.now() + (c.expires_in || 3600) * 1000 };
+  }
+
+  // Uma renovação por vez: o refresh_token só pode ser usado uma vez
+  var renovando = null;
+  function tokenValido() {
+    var s = sessao();
+    if (!s) return Promise.reject(sessaoExpirada());
+    if (s.expira - Date.now() > 60000) return Promise.resolve(s.access_token);
+    if (!renovando) {
+      renovando = buscar("/auth/v1/token?grant_type=refresh_token", {
+        method: "POST",
+        body: JSON.stringify({ refresh_token: s.refresh_token }),
       })
-      .catch(function (e) {
-        if (e instanceof TypeError) throw new Error("Sem internet? Não consegui falar com a planilha.");
-        throw e;
+        .then(function (r) {
+          if (r.status >= 400 && r.status < 500) throw sessaoExpirada();
+          if (r.status >= 400 || !r.corpo || !r.corpo.access_token) throw new Error("Servidor fora do ar (" + r.status + ").");
+          guardarSessao(novaSessao(r.corpo));
+          return r.corpo.access_token;
+        })
+        .then(
+          function (t) {
+            renovando = null;
+            return t;
+          },
+          function (e) {
+            renovando = null;
+            throw e;
+          },
+        );
+    }
+    return renovando;
+  }
+
+  /**
+   * Mesmas ações de quando era a planilha, agora nas funções do banco
+   * (supabase/migrations). Cada uma devolve { ok, ... } como antes.
+   */
+  var ACOES = {
+    listar: function () {
+      return ["admin_listar", {}, "cardapio"];
+    },
+    salvarItem: function (d) {
+      return ["admin_salvar_item", { original: d.original || null, item: d.item }, "cardapio"];
+    },
+    excluirItem: function (d) {
+      return ["admin_excluir_item", { original: d.original }, "cardapio"];
+    },
+    emFalta: function (d) {
+      return ["admin_em_falta", { secao: d.secao, nome: d.nome, opcao: d.opcao || "", valor: d.valor === true }, "cardapio"];
+    },
+    salvarComandas: function (d) {
+      return ["salvar_comandas", { lista: d.comandas }, null];
+    },
+    listarComandas: function (d) {
+      return ["listar_comandas", { dias: d.dias }, null];
+    },
+  };
+
+  function api(acao, dados) {
+    var a = ACOES[acao] && ACOES[acao](dados || {});
+    if (!a) return Promise.reject(new Error("Ação desconhecida: " + acao));
+    return tokenValido()
+      .then(function (t) {
+        return buscar("/rest/v1/rpc/" + a[0], {
+          method: "POST",
+          headers: { Authorization: "Bearer " + t },
+          body: JSON.stringify(a[1]),
+        });
       })
       .then(function (r) {
-        if (r.ok) return r;
-        if (r.erro === "sessao") {
-          guardarToken("");
-          mostrarLogin(r.mensagem);
+        var c = r.corpo || {};
+        if (r.status < 400) {
+          if (!a[2]) return c;
+          var saida = { ok: true };
+          saida[a[2]] = c;
+          return saida;
         }
-        throw new Error(r.mensagem || r.erro || "Algo deu errado.");
+        if (r.status === 401 || c.message === "sessao" || /jwt/i.test(c.message || "")) {
+          throw sessaoExpirada(c.hint);
+        }
+        throw new Error(c.message || "Algo deu errado (" + r.status + ").");
       });
   }
 
@@ -165,9 +270,8 @@
     botao.disabled = true;
     botao.textContent = "Entrando…";
     $("erro-login").textContent = "";
-    api("login", { senha: $("senha").value })
-      .then(function (r) {
-        guardarToken(r.token);
+    entrar($("senha").value)
+      .then(function () {
         return carregar();
       })
       .catch(function (e) {
@@ -180,8 +284,11 @@
   });
 
   $("botao-sair").addEventListener("click", function () {
-    api("sair").catch(function () {});
-    guardarToken("");
+    var s = sessao();
+    if (s) {
+      buscar("/auth/v1/logout", { method: "POST", headers: { Authorization: "Bearer " + s.access_token } }).catch(function () {});
+    }
+    guardarSessao(null);
     mostrarLogin();
   });
 
@@ -210,7 +317,7 @@
 
   /**
    * Com cardápio guardado, abre na hora e busca o atualizado por trás (a
-   * planilha leva uns segundos pra responder). Sem ele, espera a planilha.
+   * rede do bar pode demorar). Sem ele, espera o servidor.
    */
   function carregar() {
     var guardado = cardapioGuardado();
@@ -238,7 +345,7 @@
 
   // ---------- lista ----------
 
-  /** Mesma regra do site: seções na ordem da planilha, linhas de mesmo nome = um item. */
+  /** Mesma regra do site: seções na ordem do cardápio, linhas de mesmo nome = um item. */
   function agrupar() {
     var secoes = [];
     var porSecao = {};
@@ -635,9 +742,9 @@
 
   // ---------- início ----------
 
-  if (!txt(window.APPS_SCRIPT_URL)) {
-    document.body.textContent = "Falta configurar a planilha (assets/config.js).";
-  } else if (token()) {
+  if (!txt(window.SUPABASE_URL) || !txt(window.ADMIN_EMAIL)) {
+    document.body.textContent = "Falta configurar o banco (assets/config.js).";
+  } else if (sessao()) {
     carregar();
   } else {
     mostrarLogin();

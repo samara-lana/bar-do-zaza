@@ -2,9 +2,9 @@
  * Comandas do admin.
  *
  * As comandas vivem no celular (localStorage): lançar um item é instantâneo e
- * funciona sem internet. Em segundo plano, cada mudança vai pra aba Comandas
- * da planilha (cópia de segurança + histórico de vendas). Ao entrar num
- * celular novo, as comandas da planilha voltam pra cá.
+ * funciona sem internet. Em segundo plano, cada mudança vai pro banco
+ * (Supabase: cópia de segurança + histórico de vendas, um registro por item
+ * lançado). Ao entrar num celular novo, as comandas do banco voltam pra cá.
  *
  * Comanda: { id, cliente, status, aberta, fechada, lancamentos, atualizado }
  *   status: "aberta" | "pendurada" (fiado) | "paga" | "excluida"
@@ -16,8 +16,12 @@
 
   var CHAVE = "zaza_comandas_v1";
   var CHAVE_CLIENTES = "zaza_clientes_v1";
+  // Marca de que este celular já mandou tudo o que tinha pro Supabase (out/2026)
+  var CHAVE_MIGRACAO = "zaza_comandas_no_supabase";
   var DIAS_NO_CELULAR = 45;
   var INICIO_DO_DIA_H = 5; // venda das 0h às 5h conta no dia anterior (noite do bar)
+  var POR_ENVIO = 50; // comandas por chamada (a primeira sincronização manda todas)
+  var AVISO_PENDENTE_MS = 2 * 60000; // mudança sem chegar no banco depois disso = aviso vermelho
 
   var Z = function () {
     return window.Zaza;
@@ -80,21 +84,39 @@
    */
   function mudou(c) {
     c.atualizado = Math.max(Date.now(), (c.atualizado || 0) + 1);
+    if (c.sincronizado !== false) c.pendenteDesde = Date.now();
     c.sincronizado = false;
     salvarLocal();
     agendarSync();
   }
 
-  // ---------- sincronização com a planilha ----------
+  // ---------- sincronização com o banco ----------
 
   var timerSync = null;
   var sincronizando = false;
 
+  /**
+   * Se alguma mudança está há mais de 2 minutos sem chegar no banco, o aviso
+   * fica vermelho e diz há quanto tempo, por cima de qualquer outro estado.
+   */
   function estadoSync(texto, classe) {
     var s = $("sync");
     if (!s) return;
+    var desde = pendentes().reduce(function (m, c) {
+      return Math.min(m, c.pendenteDesde || c.atualizado || Date.now());
+    }, Date.now());
+    var parado = Date.now() - desde;
+    if (parado > AVISO_PENDENTE_MS) {
+      texto = "⚠ não enviado há " + Math.round(parado / 60000) + " min";
+      classe = "perigo";
+    }
     s.textContent = texto;
     s.className = "sync" + (classe ? " sync--" + classe : "");
+    var faixa = $("alerta-envio");
+    if (faixa) {
+      faixa.hidden = classe !== "perigo";
+      faixa.textContent = texto + " · está salvo no celular, confira a internet";
+    }
   }
 
   function pendentes() {
@@ -114,13 +136,14 @@
 
   function sincronizar() {
     if (sincronizando) return agendarSync(2000);
-    var lista = pendentes();
+    var lista = pendentes().slice(0, POR_ENVIO);
     if (!lista.length) return estadoSync("✓ salvo", "ok");
     sincronizando = true;
     estadoSync("salvando…");
     var enviadas = lista.map(function (c) {
       var copia = JSON.parse(JSON.stringify(c));
       delete copia.sincronizado;
+      delete copia.pendenteDesde;
       return copia;
     });
     Z()
@@ -131,15 +154,18 @@
           // Se mudou de novo enquanto enviava, fica pendente pra próxima
           if (atual && atual.atualizado === e.atualizado && r.salvas.indexOf(e.id) >= 0) {
             atual.sincronizado = true;
+            delete atual.pendenteDesde;
           }
         });
         salvarLocal();
         estadoSync(pendentes().length ? "salvando…" : "✓ salvo", pendentes().length ? "" : "ok");
         if (pendentes().length) agendarSync(500);
       })
-      .catch(function () {
+      .catch(function (e) {
         salvarLocal();
-        estadoSync("sem internet · salvo no celular", "alerta");
+        var semRede = /internet|servidor fora/i.test((e && e.message) || "");
+        estadoSync(semRede ? "sem internet · salvo no celular" : "erro ao enviar · salvo no celular", "alerta");
+        if (!semRede) console.error("Erro ao enviar comandas:", e);
         agendarSync(30000);
       })
       .then(function () {
@@ -153,9 +179,42 @@
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "hidden" && pendentes().length) sincronizar();
   });
+  // Mantém o "há N min" do aviso vermelho em dia
+  setInterval(function () {
+    if (pendentes().length) estadoSync($("sync").textContent, ($("sync").className.match(/sync--(\w+)/) || [])[1]);
+  }, 30000);
 
-  /** Depois do login: traz da planilha o que for mais novo (celular novo, por exemplo). */
+  // Pede ao navegador pra não apagar sozinho o que o app guarda no celular
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
+
+  /**
+   * Primeira vez com o Supabase neste celular: tudo o que está guardado aqui
+   * (abertas, fiado e histórico dos últimos dias) vira pendente e sobe pro
+   * banco. A marca fica salva junto, então se a internet cair no meio,
+   * continua de onde parou.
+   */
+  function migrarParaSupabase() {
+    try {
+      if (localStorage.getItem(CHAVE_MIGRACAO)) return;
+    } catch (e) {
+      return;
+    }
+    Object.keys(comandas).forEach(function (id) {
+      var c = comandas[id];
+      if (c.sincronizado !== false) c.pendenteDesde = Date.now();
+      c.sincronizado = false;
+    });
+    salvarLocal();
+    try {
+      localStorage.setItem(CHAVE_MIGRACAO, String(Date.now()));
+    } catch (e) {
+      /* sem espaço: só repete o envio (o banco não duplica) */
+    }
+  }
+
+  /** Depois do login: traz do banco o que for mais novo (celular novo, por exemplo). */
   function sincronizarAoEntrar() {
+    migrarParaSupabase();
     Z()
       .api("listarComandas", { dias: DIAS_NO_CELULAR })
       .then(function (r) {
@@ -255,7 +314,7 @@
 
   // ---------- cardápio pra lançar ----------
 
-  /** Cada linha da planilha vira um botão. Nome repetido em outra seção ganha a seção junto. */
+  /** Cada linha do cardápio vira um botão. Nome repetido em outra seção ganha a seção junto. */
   function itensDoCardapio() {
     var Zz = Z();
     var itens = [];
@@ -961,7 +1020,7 @@
         );
       });
     }
-    conteudo.appendChild(el("p", { classe: "nota", texto: "Histórico completo na aba Comandas da planilha." }));
+    conteudo.appendChild(el("p", { classe: "nota", texto: "Histórico completo guardado no banco (Supabase)." }));
     pagina.appendChild(conteudo);
   }
 
@@ -992,7 +1051,7 @@
     }
   }, 60000);
 
-  /** Cardápio novo chegou da planilha: só a tela de lançar depende dele. */
+  /** Cardápio novo chegou do banco: só a tela de lançar depende dele. */
   function cardapioAtualizado() {
     if (atual.pagina === "comanda" && !$("pagina-comanda").hidden) renderComanda(atual.id, true);
   }

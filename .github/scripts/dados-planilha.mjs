@@ -1,6 +1,8 @@
-// Baixa o conteúdo da planilha e grava em assets/dados-planilha.js, que o site
-// usa quando a planilha demora a responder. Só regrava se algo mudou de fato
-// (o campo `atualizado` muda a toda leitura e não conta).
+// Baixa o conteúdo do banco (função site() do Supabase) e grava em
+// assets/dados-planilha.js, que o site usa quando o banco demora a responder.
+// Só regrava se algo mudou de fato (o campo `atualizado` muda a toda leitura
+// e não conta). Rodar a cada 15 minutos também mantém o projeto gratuito do
+// Supabase acordado (ele pausa depois de 7 dias sem uso).
 // Uso: node .github/scripts/dados-planilha.mjs
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
@@ -8,17 +10,23 @@ const ARQUIVO = "assets/dados-planilha.js";
 const PREFIXO = "window.DADOS_PLANILHA = ";
 
 const config = readFileSync("assets/config.js", "utf8");
-const url = (config.match(/https:\/\/script\.google\.com\/[^"']+/) || [])[0];
-if (!url) throw new Error("URL do Apps Script não encontrada em assets/config.js");
+const base = (config.match(/SUPABASE_URL\s*=\s*"([^"]+)"/) || [])[1];
+const chave = (config.match(/SUPABASE_ANON_KEY\s*=\s*"([^"]+)"/) || [])[1];
+if (!base || !chave) throw new Error("SUPABASE_URL / SUPABASE_ANON_KEY não encontrados em assets/config.js");
 
 async function baixar() {
   let ultimoErro;
   for (let tentativa = 1; tentativa <= 4; tentativa++) {
     try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(60000) });
+      const r = await fetch(base + "/rest/v1/rpc/site", {
+        method: "POST",
+        headers: { apikey: chave, Authorization: "Bearer " + chave, "Content-Type": "application/json" },
+        body: "{}",
+        signal: AbortSignal.timeout(60000),
+      });
       if (!r.ok) throw new Error("HTTP " + r.status);
       const json = await r.json();
-      if (!json || !Array.isArray(json.cardapio) || !json.sobre) throw new Error("resposta sem dados");
+      if (!json || !Array.isArray(json.cardapio) || !json.cardapio.length || !json.sobre) throw new Error("resposta sem dados");
       return json;
     } catch (e) {
       ultimoErro = e;
@@ -42,11 +50,11 @@ if (existsSync(ARQUIVO)) {
 }
 
 if (antigo && semData(antigo) === semData(novo)) {
-  console.log("Planilha sem mudanças.");
+  console.log("Banco sem mudanças.");
 } else {
   writeFileSync(
     ARQUIVO,
-    "// GERADO pela Action \"Cópia da planilha\" (.github/workflows/dados-planilha.yml): não edite.\n" +
+    "// GERADO pela Action \"Cópia do cardápio\" (.github/workflows/dados-planilha.yml): não edite.\n" +
       PREFIXO + JSON.stringify(novo) + ";\n"
   );
   console.log("Cópia atualizada.");

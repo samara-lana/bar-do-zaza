@@ -1,7 +1,8 @@
-name: Cópia da planilha
+name: Cópia do cardápio
 
-# A cada 15 minutos guarda no site uma cópia do conteúdo da planilha, para quem
-# abre o site pela primeira vez não ver um cardápio velho quando o Google demora.
+# A cada 15 minutos guarda no site uma cópia do conteúdo do banco (Supabase),
+# para quem abre o site pela primeira vez não ver um cardápio velho quando o
+# banco demora. De quebra, mantém o projeto gratuito acordado.
 on:
   schedule:
     - cron: "7,22,37,52 * * * *"
