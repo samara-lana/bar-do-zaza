@@ -981,6 +981,14 @@ button.botao {
 
 .consumido__nome {
   flex: 1;
+  /* é um botão (toque = mudar o preço), mas com cara de texto */
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 /* − 3 + */
@@ -1031,6 +1039,12 @@ button.botao {
 .consumido__nome {
   font-weight: 600;
   line-height: 1.3;
+}
+
+.consumido-dica {
+  margin: 6px 0 0;
+  color: var(--texto-suave);
+  font-size: 0.75rem;
 }
 
 .consumido__nome small,
@@ -1127,6 +1141,48 @@ button.botao {
   font-variant-numeric: tabular-nums;
 }
 
+/* Itens / desconto / pagamentos (linhas menores em volta do total) */
+.conta__extra {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  color: var(--texto-suave);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.conta__extra + .conta__total {
+  margin-top: 4px;
+}
+
+.conta__extra--desconto,
+.conta__extra--pago {
+  color: var(--verde);
+}
+
+.conta__total--falta {
+  margin-top: 4px;
+  border-top-color: var(--vermelho);
+}
+
+.conta__total--falta strong {
+  color: var(--vermelho);
+}
+
+.conta__paga {
+  margin: 0;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--fundo-2);
+  color: var(--verde);
+  font-weight: 700;
+  text-align: center;
+}
+
+.conta__desconto {
+  align-self: center;
+}
+
 .conta__botoes {
   display: flex;
   flex-direction: column;
@@ -1174,11 +1230,92 @@ button.botao {
   font-size: 0.78rem;
 }
 
-.venda-cartao--fiado {
-  grid-column: 1 / -1;
+.vendas-grade--um {
+  grid-template-columns: 1fr;
+  margin-bottom: 8px;
 }
 
 .venda-cartao--fiado strong {
+  color: var(--amarelo);
+}
+
+.venda-cartao--pago strong {
+  color: var(--verde);
+}
+
+/* Período das vendas: Hoje · Ontem · 7 dias · ... */
+.periodos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.periodo {
+  padding: 7px 12px;
+  border: 1px solid var(--linha);
+  border-radius: 999px;
+  background: var(--fundo-2);
+  color: var(--texto);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.periodo[aria-pressed="true"] {
+  border-color: var(--laranja);
+  background: var(--laranja);
+  color: var(--fundo);
+}
+
+.datas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.datas input {
+  width: 100%;
+  min-width: 0;
+  color-scheme: dark; /* calendário do Android no tema escuro */
+}
+
+/* Uma comanda na lista do período */
+.venda-linha {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--linha);
+  color: inherit;
+  text-decoration: none;
+}
+
+.venda-linha__nome,
+.venda-linha__valor {
+  font-weight: 600;
+}
+
+.venda-linha__valor {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.venda-linha small,
+.linha-simples__detalhe {
+  display: block;
+  color: var(--texto-suave);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.venda-linha .selo-situacao--pago {
+  color: var(--verde);
+}
+
+.venda-linha .selo-situacao--fiado {
   color: var(--amarelo);
 }
 

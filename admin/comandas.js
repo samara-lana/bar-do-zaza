@@ -158,6 +158,12 @@
           }
         });
         salvarLocal();
+        // Comanda que o banco recusou fica pendente (faixa vermelha em 2 min) e tenta de novo mais tarde
+        if (r.erros && r.erros.length) {
+          console.error("O banco recusou comandas:", r.erros);
+          estadoSync("erro ao enviar · salvo no celular", "alerta");
+          return agendarSync(30000);
+        }
         estadoSync(pendentes().length ? "salvando…" : "✓ salvo", pendentes().length ? "" : "ok");
         if (pendentes().length) agendarSync(500);
       })
@@ -250,10 +256,64 @@
 
   // ---------- contas ----------
 
+  /*
+   * Conta = itens (subtotal) − desconto = total. Pagamentos podem vir em
+   * partes; o que falta (saldo) fica no fiado.
+   *   c.desconto:   { tipo: "valor" | "pct", valor } ou null
+   *   c.pagamentos: [{ id, valor, hora }]
+   *   c.vendaEm:    quando a conta saiu de "aberta" (paga ou fiado) = dia da venda
+   */
+
+  function centavos(n) {
+    return Math.round((Number(n) || 0) * 100) / 100;
+  }
+
+  function subtotal(c) {
+    return centavos(
+      (c.lancamentos || []).reduce(function (s, l) {
+        return s + (Number(l.preco) || 0);
+      }, 0),
+    );
+  }
+
+  function valorDesconto(c) {
+    var d = c.desconto;
+    if (!d || !(d.valor > 0)) return 0;
+    var s = subtotal(c);
+    return d.tipo === "pct" ? centavos((s * d.valor) / 100) : Math.min(centavos(d.valor), s);
+  }
+
   function total(c) {
-    return (c.lancamentos || []).reduce(function (s, l) {
-      return s + (Number(l.preco) || 0);
+    return centavos(subtotal(c) - valorDesconto(c));
+  }
+
+  /** Dinheiro que entrou. Conta paga antes de existir pagamento em partes = um pagamento só, no fechamento. */
+  function recebimentos(c) {
+    if (c.pagamentos && c.pagamentos.length) return c.pagamentos;
+    if (c.status === "paga") return [{ id: "unico", valor: total(c), hora: c.fechada }];
+    return [];
+  }
+
+  function pago(c) {
+    return centavos(
+      recebimentos(c).reduce(function (s, p) {
+        return s + (Number(p.valor) || 0);
+      }, 0),
+    );
+  }
+
+  function saldo(c) {
+    return c.status === "excluida" ? 0 : Math.max(0, centavos(total(c) - pago(c)));
+  }
+
+  /** Dia da venda (conta fechada ou pendurada). Comanda antiga sem vendaEm: fechamento ou último item. */
+  function dataDaVenda(c) {
+    if (c.vendaEm) return c.vendaEm;
+    if (c.status === "paga" && c.fechada) return c.fechada;
+    var ultimo = (c.lancamentos || []).reduce(function (m, l) {
+      return Math.max(m, l.hora || 0);
     }, 0);
+    return ultimo || c.aberta;
   }
 
   function dinheiro(n) {
@@ -284,7 +344,10 @@
     return "desde " + dataCurta(ms);
   }
 
-  /** Itens agrupados: [{ chave, nome, qtd, preco, total, horas }] na ordem do 1º lançamento. */
+  /**
+   * Itens agrupados: [{ chave, nome, qtd, preco, total, horas, precoCardapio }] na
+   * ordem do 1º lançamento. `precoCardapio` só vem quando o preço foi combinado na comanda.
+   */
   function resumo(c) {
     var grupos = [];
     var porChave = {};
@@ -295,8 +358,9 @@
         g = porChave[k] = { chave: l.chave, nome: l.nome, preco: Number(l.preco) || 0, qtd: 0, total: 0, horas: [] };
         grupos.push(g);
       }
+      if (l.precoCardapio != null && Number(l.precoCardapio) !== Number(l.preco)) g.precoCardapio = Number(l.precoCardapio);
       g.qtd++;
-      g.total += Number(l.preco) || 0;
+      g.total = centavos(g.total + (Number(l.preco) || 0));
       g.horas.push(hora(l.hora));
     });
     return grupos;
@@ -494,17 +558,133 @@
       });
   }
 
-  function encerrar(c, status) {
-    c.status = status;
-    if (status !== "pendurada") c.fechada = Date.now();
-    mudou(c);
-    var msg = {
-      paga: "Conta de " + c.cliente + " recebida: " + dinheiro(total(c)),
-      pendurada: c.cliente + " foi pro fiado: " + dinheiro(total(c)),
-      excluida: "Comanda de " + c.cliente + " excluída.",
-    }[status];
+  /** Volta pra lista de comandas com um aviso. */
+  function sairDaConta(msg) {
     location.hash = "#comandas";
     Z().avisar(msg);
+  }
+
+  /** A conta deixou de ser "aberta": a venda conta neste dia (só a 1ª vez). */
+  function marcarVenda(c) {
+    if (!c.vendaEm) c.vendaEm = Date.now();
+  }
+
+  function registrarPagamento(c, valor) {
+    c.pagamentos = c.pagamentos || [];
+    c.pagamentos.push({ id: novoId(), valor: centavos(valor), hora: Date.now() });
+  }
+
+  /** Recebeu tudo o que falta: conta paga. */
+  function receberTudo(c) {
+    var falta = saldo(c);
+    if (falta > 0) registrarPagamento(c, falta);
+    c.status = "paga";
+    c.fechada = Date.now();
+    marcarVenda(c);
+    mudou(c);
+    sairDaConta("Conta de " + c.cliente + " recebida: " + dinheiro(falta));
+  }
+
+  /** Pagou só uma parte: o resto fica no fiado. */
+  function receberParte(c, valor) {
+    var falta = saldo(c);
+    if (centavos(valor) >= falta) return receberTudo(c);
+    registrarPagamento(c, valor);
+    c.status = "pendurada";
+    marcarVenda(c);
+    mudou(c);
+    sairDaConta(c.cliente + " pagou " + dinheiro(valor) + ". Falta " + dinheiro(saldo(c)) + " no fiado.");
+  }
+
+  function pendurar(c) {
+    c.status = "pendurada";
+    marcarVenda(c);
+    mudou(c);
+    sairDaConta(c.cliente + " foi pro fiado: " + dinheiro(saldo(c)));
+  }
+
+  function excluir(c) {
+    c.status = "excluida";
+    c.fechada = Date.now();
+    mudou(c);
+    sairDaConta("Comanda de " + c.cliente + " excluída.");
+  }
+
+  /** "10" = R$ 10 de desconto; "10%" = 10 por cento. 0 ou vazio tira o desconto. */
+  function lerDesconto(texto) {
+    var pct = /%/.test(texto);
+    var n = lerPreco(texto);
+    if (n == null) return { erro: "Escreva o desconto, ex.: 5 ou 10%" };
+    if (n === 0) return { desconto: null };
+    if (pct && n > 100) return { erro: "Desconto em % vai até 100%." };
+    return { desconto: { tipo: pct ? "pct" : "valor", valor: centavos(n) } };
+  }
+
+  function darDesconto(c) {
+    var d = c.desconto;
+    Z()
+      .perguntar({
+        titulo: "Desconto pra " + c.cliente,
+        texto: "Em reais (ex.: 5) ou em % (ex.: 10%). 0 tira o desconto.",
+        campos: [
+          { rotulo: "Desconto", numero: true, dica: "5 ou 10%", valor: d ? String(d.valor).replace(".", ",") + (d.tipo === "pct" ? "%" : "") : "" },
+        ],
+        ok: "Aplicar",
+      })
+      .then(function (v) {
+        if (!v) return;
+        var r = lerDesconto(v[0]);
+        if (r.erro) return Z().avisar(r.erro, true);
+        var antes = c.desconto || null;
+        c.desconto = r.desconto;
+        // Desconto não pode deixar a conta menor do que já foi pago
+        if (total(c) < pago(c)) {
+          c.desconto = antes;
+          return Z().avisar("Com esse desconto a conta fica menor do que ele já pagou.", true);
+        }
+        mudou(c);
+        renderConta(c.id);
+        Z().avisar(r.desconto ? "Desconto de " + dinheiro(valorDesconto(c)) + " aplicado." : "Desconto retirado.");
+      });
+  }
+
+  /** Preço combinado (ex.: o conhaque do Zói): vale pros itens daquela linha já lançados. */
+  function mudarPreco(c, grupo) {
+    Z()
+      .perguntar({
+        titulo: "Preço de " + grupo.nome,
+        texto:
+          (grupo.qtd > 1 ? "Muda os " + grupo.qtd + " já lançados. " : "") +
+          "Pra lançar mais um com esse preço, use o + desta linha.",
+        campos: [{ rotulo: "Preço (cada)", numero: true, valor: String(grupo.preco).replace(".", ",") }],
+        ok: "Mudar preço",
+      })
+      .then(function (v) {
+        if (!v) return;
+        var novo = lerPreco(v[0]);
+        if (novo == null) return Z().avisar("Escreva só o número, ex.: 12 ou 7,50", true);
+        novo = centavos(novo);
+        if (novo === grupo.preco) return;
+        var mudados = [];
+        (c.lancamentos || []).forEach(function (l) {
+          if (l.chave !== grupo.chave || Number(l.preco) !== grupo.preco) return;
+          mudados.push({ l: l, preco: l.preco, precoCardapio: l.precoCardapio });
+          if (l.precoCardapio == null) l.precoCardapio = l.preco;
+          l.preco = novo;
+          if (Number(l.precoCardapio) === novo) delete l.precoCardapio;
+        });
+        mudou(c);
+        renderComanda(c.id, true);
+        oferecerDesfazer(grupo.nome + ": " + dinheiro(novo) + " cada", function () {
+          mudados.forEach(function (m) {
+            m.l.preco = m.preco;
+            if (m.precoCardapio == null) delete m.l.precoCardapio;
+            else m.l.precoCardapio = m.precoCardapio;
+          });
+          mudou(c);
+          renderComanda(c.id, true);
+        });
+      });
   }
 
   // ---------- telas ----------
@@ -525,7 +705,7 @@
             texto: qtd + (qtd === 1 ? " item" : " itens") + " · " + haQuanto(c.aberta),
           }),
         ]),
-        el("span", { classe: "comanda-cartao__total", texto: dinheiro(total(c)) }),
+        el("span", { classe: "comanda-cartao__total", texto: dinheiro(saldo(c)) }),
       ],
     );
   }
@@ -577,7 +757,7 @@
 
     if (fiado.length) {
       var totalFiado = fiado.reduce(function (s, c) {
-        return s + total(c);
+        return s + saldo(c);
       }, 0);
       corpo.appendChild(
         el("h2", { classe: "admin-secao__titulo admin-secao__titulo--espaco" }, [
@@ -625,7 +805,7 @@
             n,
             aberta
               ? el("small", {
-                  texto: (aberta.status === "pendurada" ? "fiado · " : "aberta · ") + dinheiro(total(aberta)),
+                  texto: (aberta.status === "pendurada" ? "fiado · " : "aberta · ") + dinheiro(saldo(aberta)),
                 })
               : null,
           ],
@@ -679,7 +859,7 @@
           c.cliente,
           c.status === "pendurada" ? el("span", { classe: "selo-fiado", texto: "fiado" }) : null,
         ]),
-        el("p", { classe: "comanda-total", texto: dinheiro(total(c)) }),
+        el("p", { classe: "comanda-total", texto: dinheiro(saldo(c)) }),
       ]),
     );
 
@@ -752,19 +932,32 @@
     var grupos = resumo(c);
     conteudo.appendChild(el("h3", { classe: "rotulo rotulo--espaco", texto: "Consumido" }));
     if (!grupos.length) conteudo.appendChild(el("p", { classe: "vazio-texto", texto: "Nada lançado ainda." }));
+    else conteudo.appendChild(el("p", { classe: "consumido-dica", texto: "Preço combinado? Toque no nome do item." }));
     grupos.forEach(function (g) {
       conteudo.appendChild(
         el("div", { classe: "consumido" }, [
-          el("span", { classe: "consumido__nome" }, [
-            g.nome,
-            el("small", {
-              // muitas da mesma: só as últimas horas (a conta mostra todas)
-              texto:
-                dinheiro(g.total) +
-                " · " +
-                (g.horas.length > 3 ? "últimas " + g.horas.slice(-3).join(", ") : g.horas.join(", ")),
-            }),
-          ]),
+          el(
+            "button",
+            {
+              type: "button",
+              classe: "consumido__nome",
+              "aria-label": "Mudar o preço de " + g.nome,
+              onclick: function () {
+                mudarPreco(c, g);
+              },
+            },
+            [
+              g.nome,
+              el("small", {
+                // muitas da mesma: só as últimas horas (a conta mostra todas)
+                texto:
+                  dinheiro(g.total) +
+                  (g.precoCardapio != null ? " · combinado " + dinheiro(g.preco) + " (cardápio " + dinheiro(g.precoCardapio) + ")" : "") +
+                  " · " +
+                  (g.horas.length > 3 ? "últimas " + g.horas.slice(-3).join(", ") : g.horas.join(", ")),
+              }),
+            ],
+          ),
           el("div", { classe: "passo", role: "group", "aria-label": "Quantidade de " + g.nome }, [
             el("button", {
               type: "button",
@@ -820,7 +1013,7 @@
                 perigo: true,
               })
               .then(function (sim) {
-                if (sim) encerrar(c, "excluida");
+                if (sim) excluir(c);
               });
           },
         }),
@@ -834,7 +1027,7 @@
         el("a", {
           classe: "botao botao--cheio botao--largo",
           href: "#conta/" + encodeURIComponent(c.id),
-          texto: (c.status === "pendurada" ? "Ver conta / receber · " : "Fechar conta · ") + dinheiro(total(c)),
+          texto: (c.status === "pendurada" ? "Ver conta / receber · " : "Fechar conta · ") + dinheiro(saldo(c)),
         }),
       ]),
     );
@@ -871,45 +1064,111 @@
     });
     var desde =
       dataCurta(c.aberta) === dataCurta(Date.now()) ? "Aberta às " + hora(c.aberta) : "Aberta em " + dataCurta(c.aberta) + " às " + hora(c.aberta);
-    var botoes = [
-      el("button", {
-        type: "button",
-        classe: "botao botao--whats botao--largo",
-        texto: (c.status === "pendurada" ? "Recebi " : "Recebido · ") + dinheiro(total(c)),
-        onclick: function () {
-          Z()
-            .perguntar({
-              titulo: "Recebeu " + dinheiro(total(c)) + "?",
-              texto: "A conta de " + c.cliente + " vai ser fechada.",
-              ok: "Recebi",
-            })
-            .then(function (sim) {
-              if (sim) encerrar(c, "paga");
-            });
-        },
-      }),
-    ];
-    if (c.status === "aberta") {
+    var falta = saldo(c);
+    var pagamentos = recebimentos(c);
+
+    // Subtotal / desconto / total / pagamentos / falta
+    var contas = [];
+    function linhaValor(rotulo, valor, classe) {
+      contas.push(el("div", { classe: "conta__extra" + (classe ? " " + classe : "") }, [el("span", { texto: rotulo }), el("span", { texto: valor })]));
+    }
+    if (c.desconto) {
+      linhaValor("Itens", dinheiro(subtotal(c)));
+      linhaValor("Desconto" + (c.desconto.tipo === "pct" ? " (" + String(c.desconto.valor).replace(".", ",") + "%)" : ""), "− " + dinheiro(valorDesconto(c)), "conta__extra--desconto");
+    }
+    contas.push(el("div", { classe: "conta__total" }, [el("span", { texto: "Total" }), el("strong", { texto: dinheiro(total(c)) })]));
+    if (pagamentos.length && c.status !== "paga") {
+      pagamentos.forEach(function (p) {
+        linhaValor("Pagou em " + dataCurta(p.hora) + " às " + hora(p.hora), "− " + dinheiro(p.valor), "conta__extra--pago");
+      });
+      contas.push(el("div", { classe: "conta__total conta__total--falta" }, [el("span", { texto: "Falta" }), el("strong", { texto: dinheiro(falta) })]));
+    }
+
+    var botoes = [];
+    if (c.status === "paga") {
+      var ultimo = pagamentos[pagamentos.length - 1];
+      botoes.push(
+        el("p", {
+          classe: "conta__paga",
+          texto: "✓ Conta paga" + (ultimo && ultimo.hora ? " em " + dataCurta(ultimo.hora) + " às " + hora(ultimo.hora) : ""),
+        }),
+      );
+    } else {
       botoes.push(
         el("button", {
           type: "button",
-          classe: "botao botao--largo",
-          texto: "Pendurar no fiado",
+          classe: "botao botao--whats botao--largo",
+          texto: (c.status === "pendurada" ? "Recebi tudo · " : "Recebido · ") + dinheiro(falta),
           onclick: function () {
-            encerrar(c, "pendurada");
+            Z()
+              .perguntar({
+                titulo: "Recebeu " + dinheiro(falta) + "?",
+                texto: "A conta de " + c.cliente + " vai ser fechada.",
+                ok: "Recebi",
+              })
+              .then(function (sim) {
+                if (sim) receberTudo(c);
+              });
+          },
+        }),
+        el("button", {
+          type: "button",
+          classe: "botao botao--largo",
+          texto: "Pagou uma parte",
+          onclick: function () {
+            Z()
+              .perguntar({
+                titulo: "Quanto " + c.cliente + " pagou?",
+                texto: "De " + dinheiro(falta) + ". O que faltar fica no fiado.",
+                campos: [{ rotulo: "Valor pago", numero: true }],
+                ok: "Registrar",
+              })
+              .then(function (v) {
+                if (!v) return;
+                var valor = centavos(lerPreco(v[0]));
+                if (!(valor > 0)) return Z().avisar("Escreva o valor pago, ex.: 20 ou 15,50", true);
+                if (valor > falta) return Z().avisar("Ele deve " + dinheiro(falta) + ": o valor pago não pode ser maior.", true);
+                receberParte(c, valor);
+              });
+          },
+        }),
+      );
+      if (c.status === "aberta") {
+        botoes.push(
+          el("button", {
+            type: "button",
+            classe: "botao botao--largo",
+            texto: "Pendurar tudo no fiado",
+            onclick: function () {
+              pendurar(c);
+            },
+          }),
+        );
+      }
+      botoes.push(
+        el("button", {
+          type: "button",
+          classe: "barra__link conta__desconto",
+          texto: c.desconto ? "Mudar desconto" : "Dar desconto",
+          onclick: function () {
+            darDesconto(c);
           },
         }),
       );
     }
     pagina.appendChild(
-      el("div", { classe: "conteudo" }, [
-        el("p", { classe: "hero__eyebrow conta__marca", texto: "Bar do Zazá" }),
-        el("h2", { classe: "comanda-nome conta__cliente", texto: c.cliente }),
-        el("p", { classe: "nota", texto: desde }),
-        tabela,
-        el("div", { classe: "conta__total" }, [el("span", { texto: "Total" }), el("strong", { texto: dinheiro(total(c)) })]),
-        el("div", { classe: "conta__botoes" }, botoes),
-      ]),
+      el(
+        "div",
+        { classe: "conteudo" },
+        [
+          el("p", { classe: "hero__eyebrow conta__marca", texto: "Bar do Zazá" }),
+          el("h2", { classe: "comanda-nome conta__cliente", texto: c.cliente }),
+          el("p", { classe: "nota", texto: desde }),
+          tabela,
+        ]
+          .concat(contas)
+          .concat([el("div", { classe: "conta__botoes" }, botoes)]),
+      ),
     );
   }
 
@@ -928,64 +1187,313 @@
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
 
+  /** 5h da manhã de um dia (o dia do bar começa às 5h). */
+  function cincoDaManha(ano, mes, dia) {
+    return new Date(ano, mes, dia, INICIO_DO_DIA_H, 0, 0, 0).getTime();
+  }
+
+  function somarDias(ms, n) {
+    var d = new Date(ms);
+    d.setDate(d.getDate() + n);
+    return d.getTime();
+  }
+
+  function dataLonga(ms) {
+    return new Date(ms).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+  }
+
+  /** "2026-10-06" (campo de data) -> 5h daquele dia. */
+  function deCampo(v) {
+    var p = String(v || "").split("-");
+    return p.length === 3 ? cincoDaManha(Number(p[0]), Number(p[1]) - 1, Number(p[2])) : null;
+  }
+
+  function paraCampo(ms) {
+    var d = new Date(ms);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  var PERIODOS = [
+    ["hoje", "Hoje"],
+    ["ontem", "Ontem"],
+    ["7dias", "7 dias"],
+    ["mes", "Este mês"],
+    ["mespassado", "Mês passado"],
+    ["datas", "Escolher datas"],
+  ];
+  var periodo = { tipo: "hoje", de: null, ate: null };
+
+  /** { de, ate } em ms, com o fim aberto: de <= x < ate. */
+  function intervalo() {
+    var hoje = inicioDoDiaDoBar();
+    var d = new Date(hoje);
+    switch (periodo.tipo) {
+      case "ontem":
+        return { de: somarDias(hoje, -1), ate: hoje };
+      case "7dias":
+        return { de: somarDias(hoje, -6), ate: somarDias(hoje, 1) };
+      case "mes":
+        return { de: cincoDaManha(d.getFullYear(), d.getMonth(), 1), ate: somarDias(hoje, 1) };
+      case "mespassado":
+        return { de: cincoDaManha(d.getFullYear(), d.getMonth() - 1, 1), ate: cincoDaManha(d.getFullYear(), d.getMonth(), 1) };
+      case "datas":
+        var de = periodo.de || hoje;
+        var ate = periodo.ate || hoje;
+        if (ate < de) ate = de;
+        return { de: de, ate: somarDias(ate, 1) };
+      default:
+        return { de: hoje, ate: somarDias(hoje, 1) };
+    }
+  }
+
+  /**
+   * As contas pagas ficam 45 dias no celular. Período mais antigo que isso é
+   * calculado com as comandas do banco (precisa de internet).
+   */
+  function comandasDoPeriodo(iv) {
+    var locais = Object.keys(comandas).map(function (id) {
+      return comandas[id];
+    });
+    if (iv.de >= Date.now() - (DIAS_NO_CELULAR - 1) * 864e5) return Promise.resolve({ lista: locais, doBanco: false });
+    return Z()
+      .api("vendasPeriodo", { de: iv.de, ate: iv.ate })
+      .then(function (r) {
+        // O que está no celular é o mais novo (pode ter mudança ainda não enviada)
+        var porId = {};
+        (r.comandas || []).forEach(function (c) {
+          porId[c.id] = c;
+        });
+        locais.forEach(function (c) {
+          porId[c.id] = c;
+        });
+        return {
+          lista: Object.keys(porId).map(function (id) {
+            return porId[id];
+          }),
+          doBanco: true,
+        };
+      });
+  }
+
+  function cartao(rotulo, valor, detalhe, classe) {
+    return el("div", { classe: "venda-cartao" + (classe ? " " + classe : "") }, [
+      el("span", { classe: "venda-cartao__rotulo", texto: rotulo }),
+      el("strong", { texto: dinheiro(valor) }),
+      el("small", { texto: detalhe }),
+    ]);
+  }
+
+  function plural(n, um, varios) {
+    return n + " " + (n === 1 ? um : varios);
+  }
+
+  /** Lista de quem deve, pra mandar pra si mesmo no WhatsApp (cópia fora do sistema). */
+  function compartilharFiado() {
+    var fiado = lista("pendurada")
+      .filter(function (c) {
+        return saldo(c) > 0;
+      })
+      .sort(function (a, b) {
+        return saldo(b) - saldo(a);
+      });
+    var soma = fiado.reduce(function (s, c) {
+      return s + saldo(c);
+    }, 0);
+    var texto =
+      "Fiado · Bar do Zazá · " +
+      dataLonga(Date.now()) +
+      "\n\n" +
+      fiado
+        .map(function (c) {
+          var parte = pago(c) > 0 ? ", já pagou " + dinheiro(pago(c)) : "";
+          return "• " + c.cliente + ": " + dinheiro(saldo(c)) + " (desde " + dataLonga(dataDaVenda(c)) + parte + ")";
+        })
+        .join("\n") +
+      "\n\nTotal: " +
+      dinheiro(soma) +
+      " · " +
+      plural(fiado.length, "pessoa", "pessoas");
+    if (navigator.share) {
+      navigator.share({ title: "Fiado · Bar do Zazá", text: texto }).catch(function () {});
+    } else {
+      window.open("https://wa.me/?text=" + encodeURIComponent(texto), "_blank");
+    }
+  }
+
   function renderVendas() {
     var pagina = $("pagina-vendas");
     pagina.innerHTML = "";
-    var pagas = lista("paga");
-    var hoje = diaDoBar(Date.now());
-    var ontem = diaDoBar(Date.now() - 864e5);
-    var porDia = {};
-    pagas.forEach(function (c) {
-      var d = diaDoBar(c.fechada);
-      porDia[d] = porDia[d] || { total: 0, qtd: 0 };
-      porDia[d].total += total(c);
-      porDia[d].qtd++;
+    var conteudo = el("div", { classe: "conteudo" });
+    pagina.appendChild(conteudo);
+
+    // fiado em aberto: é de agora, não do período
+    var fiado = lista("pendurada").filter(function (c) {
+      return saldo(c) > 0;
     });
-    function somaDias(n) {
-      var s = { total: 0, qtd: 0 };
-      for (var i = 0; i < n; i++) {
-        var d = porDia[diaDoBar(Date.now() - i * 864e5)];
-        if (d) {
-          s.total += d.total;
-          s.qtd += d.qtd;
-        }
-      }
-      return s;
-    }
-    var fiado = lista("pendurada");
     var totalFiado = fiado.reduce(function (s, c) {
-      return s + total(c);
+      return s + saldo(c);
     }, 0);
-    var cartoes = [
-      ["Hoje", porDia[hoje] || { total: 0, qtd: 0 }],
-      ["Ontem", porDia[ontem] || { total: 0, qtd: 0 }],
-      ["Últimos 7 dias", somaDias(7)],
-      ["Últimos 30 dias", somaDias(30)],
-    ];
-    var grade = el("div", { classe: "vendas-grade" });
-    cartoes.forEach(function (x) {
-      grade.appendChild(
-        el("div", { classe: "venda-cartao" }, [
-          el("span", { classe: "venda-cartao__rotulo", texto: x[0] }),
-          el("strong", { texto: dinheiro(x[1].total) }),
-          el("small", { texto: x[1].qtd + (x[1].qtd === 1 ? " comanda" : " comandas") }),
-        ]),
-      );
-    });
-    grade.appendChild(
-      el("div", { classe: "venda-cartao venda-cartao--fiado" }, [
-        el("span", { classe: "venda-cartao__rotulo", texto: "Fiado em aberto" }),
-        el("strong", { texto: dinheiro(totalFiado) }),
-        el("small", { texto: fiado.length + (fiado.length === 1 ? " pessoa" : " pessoas") }),
+    conteudo.appendChild(
+      el("div", { classe: "vendas-grade vendas-grade--um" }, [
+        cartao("Fiado em aberto · hoje", totalFiado, plural(fiado.length, "pessoa devendo", "pessoas devendo"), "venda-cartao--fiado"),
       ]),
     );
+    if (fiado.length) {
+      conteudo.appendChild(
+        el("button", {
+          type: "button",
+          classe: "botao botao--pequeno botao--largo",
+          texto: "Mandar lista do fiado (WhatsApp)",
+          onclick: compartilharFiado,
+        }),
+      );
+    }
 
-    // mais vendidos em 7 dias
-    var limite = Date.now() - 7 * 864e5;
+    // escolha do período
+    var botoes = el("div", { classe: "periodos", role: "group", "aria-label": "Período" });
+    PERIODOS.forEach(function (p) {
+      botoes.appendChild(
+        el("button", {
+          type: "button",
+          classe: "periodo",
+          "aria-pressed": periodo.tipo === p[0] ? "true" : "false",
+          texto: p[1],
+          onclick: function () {
+            periodo.tipo = p[0];
+            if (p[0] === "datas" && !periodo.de) periodo.de = periodo.ate = inicioDoDiaDoBar();
+            renderVendas();
+          },
+        }),
+      );
+    });
+    conteudo.appendChild(el("h2", { classe: "admin-secao__titulo admin-secao__titulo--espaco", texto: "Vendas" }));
+    conteudo.appendChild(botoes);
+    if (periodo.tipo === "datas") {
+      var campoDe = el("input", { type: "date", "aria-label": "De", max: paraCampo(Date.now()) });
+      var campoAte = el("input", { type: "date", "aria-label": "Até", max: paraCampo(Date.now()) });
+      campoDe.value = paraCampo(periodo.de);
+      campoAte.value = paraCampo(periodo.ate);
+      var mudouData = function () {
+        periodo.de = deCampo(campoDe.value) || periodo.de;
+        periodo.ate = deCampo(campoAte.value) || periodo.ate;
+        renderVendas();
+      };
+      campoDe.addEventListener("change", mudouData);
+      campoAte.addEventListener("change", mudouData);
+      conteudo.appendChild(
+        el("div", { classe: "datas" }, [
+          el("label", { classe: "campo" }, [el("span", { texto: "De" }), campoDe]),
+          el("label", { classe: "campo" }, [el("span", { texto: "Até" }), campoAte]),
+        ]),
+      );
+    }
+
+    var iv = intervalo();
+    var resultado = el("div", {}, [el("p", { classe: "vazio-texto", texto: "Buscando no banco…" })]);
+    conteudo.appendChild(resultado);
+    comandasDoPeriodo(iv)
+      .then(function (r) {
+        // Só desenha se o período ainda é o mesmo (a pessoa pode ter trocado no meio)
+        var agora = intervalo();
+        if (agora.de !== iv.de || agora.ate !== iv.ate || !resultado.isConnected) return;
+        resultado.innerHTML = "";
+        desenharPeriodo(resultado, r.lista, iv, r.doBanco);
+      })
+      .catch(function (e) {
+        resultado.innerHTML = "";
+        resultado.appendChild(
+          el("p", { classe: "vazio-texto", texto: "Período com mais de " + DIAS_NO_CELULAR + " dias precisa de internet. (" + e.message + ")" }),
+        );
+      });
+  }
+
+  function desenharPeriodo(caixa, todas, iv, doBanco) {
+    var dentro = function (ms) {
+      return ms >= iv.de && ms < iv.ate;
+    };
+    var vendidas = todas
+      .filter(function (c) {
+        return (c.status === "paga" || c.status === "pendurada") && dentro(dataDaVenda(c));
+      })
+      .sort(function (a, b) {
+        return dataDaVenda(b) - dataDaVenda(a);
+      });
+    var entradas = [];
+    todas.forEach(function (c) {
+      if (c.status === "excluida") return;
+      recebimentos(c).forEach(function (p) {
+        if (p.hora && dentro(p.hora)) entradas.push({ c: c, valor: Number(p.valor) || 0, hora: p.hora });
+      });
+    });
+
+    var soma = function (arr, f) {
+      return centavos(
+        arr.reduce(function (s, x) {
+          return s + f(x);
+        }, 0),
+      );
+    };
+    var quitadas = vendidas.filter(function (c) {
+      return saldo(c) === 0;
+    });
+    var devendo = vendidas.filter(function (c) {
+      return saldo(c) > 0;
+    });
+    var descontos = soma(vendidas, valorDesconto);
+
+    caixa.appendChild(
+      el("div", { classe: "vendas-grade" }, [
+        cartao("Vendido", soma(vendidas, total), plural(vendidas.length, "comanda", "comandas")),
+        cartao("Recebido", soma(entradas, function (x) {
+          return x.valor;
+        }), plural(entradas.length, "pagamento", "pagamentos")),
+        cartao("Pagas", soma(quitadas, total), plural(quitadas.length, "comanda", "comandas"), "venda-cartao--pago"),
+        cartao("Ainda no fiado", soma(devendo, saldo), plural(devendo.length, "comanda", "comandas"), "venda-cartao--fiado"),
+      ]),
+    );
+    caixa.appendChild(
+      el("p", {
+        classe: "nota",
+        texto:
+          (descontos > 0 ? "Descontos dados: " + dinheiro(descontos) + ". " : "") +
+          "Vendido = contas fechadas ou penduradas no período. Recebido = dinheiro que entrou no período, inclusive fiado antigo. Até 5h da manhã conta como a noite anterior." +
+          (doBanco ? " Período antigo: calculado com o histórico do banco." : ""),
+      }),
+    );
+
+    // comandas do período
+    caixa.appendChild(el("h2", { classe: "admin-secao__titulo admin-secao__titulo--espaco", texto: "Comandas (" + vendidas.length + ")" }));
+    if (!vendidas.length) caixa.appendChild(el("p", { classe: "vazio-texto", texto: "Nenhuma conta fechada nesse período." }));
+    var LIMITE_LISTA = 60;
+    vendidas.slice(0, LIMITE_LISTA).forEach(function (c) {
+      var falta = saldo(c);
+      var situacao =
+        falta === 0 ? "pago" : pago(c) > 0 ? "pagou parte · falta " + dinheiro(falta) : "fiado";
+      var filhos = [
+        el("span", { classe: "venda-linha__nome" }, [
+          c.cliente,
+          el("small", { texto: dataCurta(dataDaVenda(c)) + " às " + hora(dataDaVenda(c)) }),
+        ]),
+        el("span", { classe: "venda-linha__valor" }, [
+          dinheiro(total(c)),
+          el("small", { classe: "selo-situacao selo-situacao--" + (falta === 0 ? "pago" : "fiado"), texto: situacao }),
+        ]),
+      ];
+      // Só abre a conta das comandas que estão no celular
+      caixa.appendChild(
+        comandas[c.id]
+          ? el("a", { classe: "venda-linha", href: "#conta/" + encodeURIComponent(c.id) }, filhos)
+          : el("div", { classe: "venda-linha" }, filhos),
+      );
+    });
+    if (vendidas.length > LIMITE_LISTA) {
+      caixa.appendChild(el("p", { classe: "nota", texto: "E mais " + (vendidas.length - LIMITE_LISTA) + " comandas." }));
+    }
+
+    // mais vendidos no período
     var conta = {};
-    pagas.forEach(function (c) {
-      if (c.fechada < limite) return;
-      c.lancamentos.forEach(function (l) {
+    vendidas.forEach(function (c) {
+      (c.lancamentos || []).forEach(function (l) {
         conta[l.nome] = (conta[l.nome] || 0) + 1;
       });
     });
@@ -994,34 +1502,43 @@
         return conta[b] - conta[a];
       })
       .slice(0, 10);
-
-    var dias = Object.keys(porDia).sort().reverse().slice(0, 14);
-
-    var conteudo = el("div", { classe: "conteudo" }, [
-      grade,
-      el("p", { classe: "nota", texto: "Conta o que foi recebido. Fiado entra no dia em que for pago. Até 5h da manhã ainda conta como a noite anterior." }),
-      el("h2", { classe: "admin-secao__titulo admin-secao__titulo--espaco", texto: "Mais vendidos · 7 dias" }),
-    ]);
-    if (!top.length) conteudo.appendChild(el("p", { classe: "vazio-texto", texto: "Ainda sem vendas nos últimos 7 dias." }));
+    caixa.appendChild(el("h2", { classe: "admin-secao__titulo admin-secao__titulo--espaco", texto: "Mais vendidos" }));
+    if (!top.length) caixa.appendChild(el("p", { classe: "vazio-texto", texto: "Sem vendas nesse período." }));
     top.forEach(function (n) {
-      conteudo.appendChild(
-        el("div", { classe: "linha-simples" }, [el("span", { texto: n }), el("strong", { texto: conta[n] + "×" })]),
-      );
+      caixa.appendChild(el("div", { classe: "linha-simples" }, [el("span", { texto: n }), el("strong", { texto: conta[n] + "×" })]));
     });
-    if (dias.length) {
-      conteudo.appendChild(el("h2", { classe: "admin-secao__titulo admin-secao__titulo--espaco", texto: "Por dia" }));
+
+    // por dia (vendido e recebido)
+    var porDia = {};
+    var dia = function (d) {
+      return (porDia[d] = porDia[d] || { vendido: 0, qtd: 0, recebido: 0 });
+    };
+    vendidas.forEach(function (c) {
+      var d = dia(diaDoBar(dataDaVenda(c)));
+      d.vendido = centavos(d.vendido + total(c));
+      d.qtd++;
+    });
+    entradas.forEach(function (x) {
+      var d = dia(diaDoBar(x.hora));
+      d.recebido = centavos(d.recebido + x.valor);
+    });
+    var dias = Object.keys(porDia).sort().reverse();
+    if (dias.length > 1) {
+      caixa.appendChild(el("h2", { classe: "admin-secao__titulo admin-secao__titulo--espaco", texto: "Por dia" }));
       dias.forEach(function (d) {
         var p = d.split("-");
-        conteudo.appendChild(
+        var x = porDia[d];
+        caixa.appendChild(
           el("div", { classe: "linha-simples" }, [
-            el("span", { texto: p[2] + "/" + p[1] + " · " + porDia[d].qtd + (porDia[d].qtd === 1 ? " comanda" : " comandas") }),
-            el("strong", { texto: dinheiro(porDia[d].total) }),
+            el("span", {}, [
+              p[2] + "/" + p[1] + " · " + plural(x.qtd, "comanda", "comandas"),
+              el("small", { classe: "linha-simples__detalhe", texto: "recebido " + dinheiro(x.recebido) }),
+            ]),
+            el("strong", { texto: dinheiro(x.vendido) }),
           ]),
         );
       });
     }
-    conteudo.appendChild(el("p", { classe: "nota", texto: "Histórico completo guardado no banco (Supabase)." }));
-    pagina.appendChild(conteudo);
   }
 
   // ---------- roteamento (chamado pelo admin.js) ----------

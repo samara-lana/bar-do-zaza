@@ -196,6 +196,9 @@
     listarComandas: function (d) {
       return ["listar_comandas", { dias: d.dias }, null];
     },
+    vendasPeriodo: function (d) {
+      return ["vendas_periodo", { de: Math.round(d.de), ate: Math.round(d.ate) }, null];
+    },
   };
 
   function api(acao, dados) {
@@ -741,6 +744,31 @@
   };
 
   // ---------- início ----------
+
+  // Guarda as telas do admin no celular: abre mesmo sem internet e dá pra instalar como app
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(function (e) {
+      console.warn("Sem modo offline:", e);
+    });
+  }
+
+  // Android/Chrome: botão "Instalar app" (só aparece quando ainda não está instalado)
+  var pedidoInstalar = null;
+  window.addEventListener("beforeinstallprompt", function (ev) {
+    ev.preventDefault();
+    pedidoInstalar = ev;
+    $("botao-instalar").hidden = false;
+  });
+  $("botao-instalar").addEventListener("click", function () {
+    if (!pedidoInstalar) return;
+    pedidoInstalar.prompt();
+    pedidoInstalar = null;
+    $("botao-instalar").hidden = true;
+  });
+  window.addEventListener("appinstalled", function () {
+    $("botao-instalar").hidden = true;
+    avisar("Pronto! O Zazá agora está na tela inicial.");
+  });
 
   if (!txt(window.SUPABASE_URL) || !txt(window.ADMIN_EMAIL)) {
     document.body.textContent = "Falta configurar o banco (assets/config.js).";

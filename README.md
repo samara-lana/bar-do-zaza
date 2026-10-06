@@ -8,7 +8,19 @@ Site do Bar do Zazá (Contagem/MG): cardápio, horário de funcionamento, locali
 
 **Pelo celular:** abra `/admin/` no site (https://samara-lana.github.io/bar-do-zaza/admin/) e entre com a senha. Dá pra marcar item em falta, editar nome/descrição/preços, criar e excluir itens e seções. No celular, use "Adicionar à tela inicial" pra abrir como app. A mudança aparece no site na hora.
 
-**Comandas:** a aba Comandas do admin substitui o caderninho. Escreva o nome do cliente (nomes já usados aparecem pra tocar), toque nos itens pra lançar (+1), feche a conta como "Recebido" ou "Pendurar no fiado". As comandas ficam salvas no próprio celular e funcionam sem internet; cada mudança vai pro banco logo em seguida. Se alguma coisa ficar mais de 2 minutos sem chegar no banco, aparece uma **faixa vermelha** em todas as telas (o que foi lançado continua salvo no celular). A aba Vendas mostra o recebido por dia, semana e mês e o fiado em aberto.
+**Comandas:** a aba Comandas do admin substitui o caderninho. Escreva o nome do cliente (nomes já usados aparecem pra tocar), toque nos itens pra lançar (+1) e feche a conta:
+
+- **Recebido**: pagou tudo.
+- **Pagou uma parte**: digita quanto pagou; o que falta fica no fiado. Dá pra pagar em quantas partes quiser, e a conta mostra cada pagamento com a data.
+- **Pendurar tudo no fiado**.
+- **Dar desconto**: em reais (`5`) ou em porcentagem (`10%`). `0` tira o desconto.
+- **Preço combinado** (ex.: o conhaque mais barato pro Zói): dentro da comanda, toque no nome do item no "Consumido" e mude o preço. O `+` daquela linha lança mais um com o mesmo preço; o preço do cardápio fica guardado junto.
+
+As comandas ficam salvas no próprio celular e funcionam sem internet; cada mudança vai pro banco logo em seguida. Se alguma coisa ficar mais de 2 minutos sem chegar no banco, aparece uma **faixa vermelha** em todas as telas (o que foi lançado continua salvo no celular).
+
+**Vendas:** escolha o período (hoje, ontem, 7 dias, este mês, mês passado ou datas). **Vendido** = contas fechadas ou penduradas no período; **Recebido** = dinheiro que entrou no período, inclusive fiado antigo pago agora; **Pagas** e **Ainda no fiado** separam as vendidas. Depois vêm a lista das comandas, os mais vendidos e o resumo por dia. Períodos com mais de 45 dias são calculados com o histórico do banco (precisa de internet). O **fiado em aberto** fica sempre no topo, com o botão **Mandar lista do fiado**, que gera a lista de quem deve pra mandar pelo WhatsApp (uma cópia fora do sistema).
+
+**Como app no celular (Android):** abra o admin no Chrome e toque em **Instalar app** (no topo) ou, no menu ⋮ do Chrome, em **Instalar app / Adicionar à tela inicial**. O ícone do Zazá fica junto dos outros apps, abre em tela cheia e funciona mesmo sem internet (as telas ficam guardadas no celular).
 
 **Preço:** só o número (`23`, `7,50`). Preço que não é número é recusado na hora de salvar (nunca vira um valor errado calado). Vazio aparece como "consulte" no site e pergunta o preço na hora de lançar.
 
@@ -16,7 +28,7 @@ Site do Bar do Zazá (Contagem/MG): cardápio, horário de funcionamento, locali
 
 ## Onde ficam os dados (Supabase)
 
-Painel: https://supabase.com/dashboard/project/jezxejsellwjyxunsxfn. Em **Table editor** dá pra conferir tudo; `comandas_resumo` mostra o total de cada comanda.
+Painel: https://supabase.com/dashboard/project/jezxejsellwjyxunsxfn. Em **Table editor** dá pra conferir tudo; `comandas_resumo` mostra, por comanda, itens, desconto, quanto já foi pago e quantos pagamentos.
 
 | Tabela        | O que guarda                                                                                       |
 | ------------- | -------------------------------------------------------------------------------------------------- |
@@ -26,6 +38,7 @@ Painel: https://supabase.com/dashboard/project/jezxejsellwjyxunsxfn. Em **Table 
 | `sobre`       | Endereço, telefone, links (Maps, avaliação, iFood, Instagram) e frases do site (`chave` / `valor`). |
 | `comandas`    | Uma linha por comanda (cliente, status, aberta/fechada).                                           |
 | `lancamentos` | **Um registro por item lançado**, com o preço do momento. Item tirado não é apagado: ganha `removido_em`. |
+| `pagamentos`  | **Um registro por dinheiro recebido** (pode ser parte da conta). Pagamento desfeito não é apagado: ganha `removido_em`. |
 | `admins`      | Quem pode usar o admin (o usuário do Zazá).                                                        |
 
 Horários, fotos e textos do `sobre` não têm tela no admin: edite pelo Table editor.
@@ -47,7 +60,7 @@ assets/app.js            monta o cardápio, horário e "aberto agora"
 assets/config.js         endereço e chave pública do Supabase, e-mail do admin
 assets/dados-padrao.js   conteúdo padrão (último recurso, se não houver cópia)
 assets/dados-planilha.js cópia do banco, GERADA a cada 15 minutos pela Action (não edite)
-admin/                   área de edição e comandas pelo celular
+admin/                   área de edição e comandas pelo celular (sw.js = funciona offline / instalável)
 fotos/                   fotos servidas pelo próprio site
 supabase/migrations/     tabelas, regras e funções do banco
 scripts/                 importar da planilha e backup (rodam no computador, com o .env.local)
