@@ -654,11 +654,14 @@ button.botao {
   padding: 0 var(--gutter);
   background: var(--fundo);
   border-bottom: 1px solid var(--linha);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
 .menu a {
-  flex: 1;
-  padding: 12px 4px;
+  flex: 1 0 auto;
+  padding: 12px 6px;
+  font-size: 0.9rem; /* cinco abas cabem num celular de 360px */
   text-align: center;
   color: var(--texto-suave);
   font-weight: 600;
@@ -1241,6 +1244,105 @@ button.botao {
 
 .venda-cartao--pago strong {
   color: var(--verde);
+}
+
+/* ======================= Bar (informações e horários) ======================= */
+
+.campo__dica {
+  display: block;
+  margin-top: 4px;
+  color: var(--texto-suave);
+  font-size: 0.78rem;
+}
+
+.campo__dica--erro {
+  color: var(--vermelho);
+  font-weight: 600;
+}
+
+/* Dia em cima e o campo na largura toda: "11h às 14h; 16h às 23h" cabe inteiro */
+.horario {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--linha);
+}
+
+.horario__campos {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.horario__linha {
+  display: flex;
+  gap: 6px;
+}
+
+.horario__linha input {
+  flex: 1;
+  min-width: 0;
+}
+
+.horario--fechado .horario__dia {
+  color: var(--texto-suave);
+}
+
+.avancado {
+  margin: 8px 0 16px;
+}
+
+.avancado summary {
+  padding: 10px 0;
+  color: var(--texto-suave);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#pagina-bar {
+  padding-bottom: 110px;
+}
+
+/* ======================= Fotos ======================= */
+
+.foto-admin {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--linha);
+}
+
+.foto-admin img {
+  flex: none;
+  width: 96px;
+  height: 96px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--fundo-2);
+}
+
+.foto-admin__campos {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.foto-admin__botoes {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.foto-admin__botoes .barra__link {
+  margin-left: auto;
+}
+
+.foto-admin__botoes .botao:disabled {
+  opacity: 0.35;
 }
 
 /* Período das vendas: Hoje · Ontem · 7 dias · ... */

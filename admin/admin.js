@@ -199,6 +199,19 @@
     vendasPeriodo: function (d) {
       return ["vendas_periodo", { de: Math.round(d.de), ate: Math.round(d.ate) }, null];
     },
+    // Informações, horários e fotos do site (admin/site.js): devolvem { ok, site }
+    lerSite: function () {
+      return ["site", {}, "site"];
+    },
+    salvarSobre: function (d) {
+      return ["admin_salvar_sobre", { dados: d.dados }, "site"];
+    },
+    salvarHorarios: function (d) {
+      return ["admin_salvar_horarios", { lista: d.lista }, "site"];
+    },
+    salvarFotos: function (d) {
+      return ["admin_salvar_fotos", { lista: d.lista }, "site"];
+    },
   };
 
   function api(acao, dados) {
@@ -225,6 +238,52 @@
         }
         throw new Error(c.message || "Algo deu errado (" + r.status + ").");
       });
+  }
+
+  /**
+   * Fotos no Storage do Supabase (bucket público "fotos"): enviar e apagar.
+   * Envio tem mais tempo que o resto (foto em rede ruim demora).
+   */
+  function enviarFoto(nome, blob) {
+    return tokenValido().then(function (t) {
+      var controle = "AbortController" in window ? new AbortController() : null;
+      var timer = setTimeout(function () {
+        if (controle) controle.abort();
+      }, 90000);
+      return fetch(window.SUPABASE_URL + "/storage/v1/object/fotos/" + encodeURIComponent(nome), {
+        method: "POST",
+        headers: { apikey: window.SUPABASE_ANON_KEY, Authorization: "Bearer " + t, "Content-Type": blob.type || "image/jpeg", "Cache-Control": "31536000" },
+        body: blob,
+        signal: controle ? controle.signal : undefined,
+      })
+        .catch(function () {
+          throw new Error("Sem internet? A foto não foi enviada.");
+        })
+        .then(function (r) {
+          clearTimeout(timer);
+          if (r.status === 401 || r.status === 403) throw sessaoExpirada();
+          if (!r.ok) {
+            return r.text().then(function (x) {
+              throw new Error("A foto não foi enviada (" + r.status + "): " + x.slice(0, 120));
+            });
+          }
+          return window.SUPABASE_URL + "/storage/v1/object/public/fotos/" + encodeURIComponent(nome);
+        });
+    });
+  }
+
+  /** Apaga do Storage uma foto que saiu da galeria (falhar aqui não é grave: só sobra o arquivo). */
+  function apagarFoto(url) {
+    var prefixo = window.SUPABASE_URL + "/storage/v1/object/public/fotos/";
+    if (url.indexOf(prefixo) !== 0) return Promise.resolve();
+    var nome = decodeURIComponent(url.slice(prefixo.length));
+    return tokenValido().then(function (t) {
+      return buscar("/storage/v1/object/fotos", {
+        method: "DELETE",
+        headers: { Authorization: "Bearer " + t },
+        body: JSON.stringify({ prefixes: [nome] }),
+      });
+    });
   }
 
   // ---------- telas ----------
@@ -261,6 +320,7 @@
       a.setAttribute("aria-current", a.getAttribute("data-pagina") === pagina ? "page" : "false");
     });
     if (pagina === "cardapio") render();
+    else if (pagina === "bar" || pagina === "fotos") window.Site.mostrar(pagina);
     else window.Comandas.mostrar(pagina, decodeURIComponent(partes[1] || ""));
     window.scrollTo(0, 0);
   }
@@ -732,6 +792,8 @@
 
   window.Zaza = {
     api: api,
+    enviarFoto: enviarFoto,
+    apagarFoto: apagarFoto,
     el: el,
     txt: txt,
     slug: slug,

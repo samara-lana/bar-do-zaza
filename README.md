@@ -20,6 +20,10 @@ As comandas ficam salvas no próprio celular e funcionam sem internet; cada muda
 
 **Vendas:** escolha o período (hoje, ontem, 7 dias, este mês, mês passado ou datas). **Vendido** = contas fechadas ou penduradas no período; **Recebido** = dinheiro que entrou no período, inclusive fiado antigo pago agora; **Pagas** e **Ainda no fiado** separam as vendidas. Depois vêm a lista das comandas, os mais vendidos e o resumo por dia. Períodos com mais de 45 dias são calculados com o histórico do banco (precisa de internet). O **fiado em aberto** fica sempre no topo, com o botão **Mandar lista do fiado**, que gera a lista de quem deve pra mandar pelo WhatsApp (uma cópia fora do sistema).
 
+**Bar (informações e horários):** a aba **Bar** tem os horários de cada dia (com pausa: `11h às 14h; 16h às 23h`; ou o botão **Fechado**), o aviso embaixo dos horários, endereço, WhatsApp, links (Maps, Instagram, iFood) e as informações das refeições. Embaixo de cada horário aparece como o site vai entender (ex.: "Abre 11h às 14h e 16h às 23h"); horário que o site não entende não deixa salvar. Toque em **Salvar** e já aparece no site.
+
+**Fotos:** a aba **Fotos** envia fotos do celular pra galeria do site (**+ Adicionar fotos**, dá pra escolher várias). O app diminui cada foto antes de enviar (uma foto de 7 MB vira uns 350 KB). Dá pra pôr legenda, mudar a ordem (↑ ↓) e tirar (o arquivo é apagado). Sem nenhuma foto, a galeria não aparece no site.
+
 **Como app no celular (Android):** abra o admin no Chrome e toque em **Instalar app** (no topo) ou, no menu ⋮ do Chrome, em **Instalar app / Adicionar à tela inicial**. O ícone do Zazá fica junto dos outros apps, abre em tela cheia e funciona mesmo sem internet (as telas ficam guardadas no celular).
 
 **Preço:** só o número (`23`, `7,50`). Preço que não é número é recusado na hora de salvar (nunca vira um valor errado calado). Vazio aparece como "consulte" no site e pergunta o preço na hora de lançar.
@@ -34,14 +38,14 @@ Painel: https://supabase.com/dashboard/project/jezxejsellwjyxunsxfn. Em **Table 
 | ------------- | -------------------------------------------------------------------------------------------------- |
 | `cardapio`    | Uma linha por preço (`secao`, `nome`, `opcao`, `descricao`, `preco`, `em_falta`), na ordem de `ordem`. |
 | `horarios`    | Um dia por linha. `horario` tipo `12h às 23h`; com pausa, `12h às 14h; 16h às 23h`; ou `Fechado`.  |
-| `fotos`       | Galeria do site (`foto` = link ou arquivo da pasta `fotos/`; `legenda`).                           |
+| `fotos`       | Galeria do site (`foto` = link; as enviadas pelo admin ficam no Storage, bucket `fotos`; `legenda`). |
 | `sobre`       | Endereço, telefone, links (Maps, avaliação, iFood, Instagram) e frases do site (`chave` / `valor`). |
 | `comandas`    | Uma linha por comanda (cliente, status, aberta/fechada).                                           |
 | `lancamentos` | **Um registro por item lançado**, com o preço do momento. Item tirado não é apagado: ganha `removido_em`. |
 | `pagamentos`  | **Um registro por dinheiro recebido** (pode ser parte da conta). Pagamento desfeito não é apagado: ganha `removido_em`. |
 | `admins`      | Quem pode usar o admin (o usuário do Zazá).                                                        |
 
-Horários, fotos e textos do `sobre` não têm tela no admin: edite pelo Table editor.
+Tudo isso se edita pelo admin (abas Cardápio, Bar e Fotos); o painel do Supabase fica pra conferência e emergência.
 
 Segurança: as tabelas ficam fechadas (RLS). O site público só consegue chamar `site()`, que devolve o cardápio; tudo o mais exige o login de um usuário que esteja em `admins`. A chave em `assets/config.js` é a pública ("anon"); a `service_role` fica só no `.env.local` (fora do git) e nos segredos do GitHub.
 

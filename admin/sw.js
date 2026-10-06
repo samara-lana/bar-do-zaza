@@ -14,6 +14,7 @@ var ARQUIVOS = [
   "admin.css",
   "admin.js",
   "comandas.js",
+  "site.js",
   "manifest.webmanifest",
   "../assets/config.js",
   "../assets/style.css",
