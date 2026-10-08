@@ -21,7 +21,7 @@
   /** Campos da aba Sobre, na ordem da tela. `vazio` explica o que acontece se ficar em branco. */
   var GRUPOS = [
     {
-      titulo: "Informações gerais",
+      titulo: "Informações do bar",
       campos: [
         { chave: "nome", rotulo: "Nome do bar", dica: "Aparece no rodapé do site." },
         { chave: "endereco", rotulo: "Endereço", dica: "Aparece em \"Onde fica\"." },
@@ -98,36 +98,56 @@
   }
 
   function linhaHorario(dia, h) {
-    var horario = el("input", { type: "text", "aria-label": "Horário de " + dia, placeholder: "11h às 14h; 16h às 23h", "data-dia": dia });
+    var horario = el("input", { type: "text", "aria-label": "Horário de " + dia, placeholder: "Ex.: 11h às 23h, ou Fechado", "data-dia": dia });
     var obs = el("input", { type: "text", "aria-label": "Observação de " + dia, placeholder: "Observação (opcional)", autocapitalize: "sentences" });
     horario.value = (h && h.horario) || "";
     obs.value = (h && h.obs) || "";
     var leitura = el("small", { classe: "campo__dica" });
+    var linha = el("div", { classe: "horario" }, [el("strong", { classe: "horario__dia", texto: dia }), horario, leitura, obs]);
     var conferir = function () {
       var r = lerHorario(horario.value);
       leitura.textContent = r.texto;
       leitura.className = "campo__dica" + (r.ok ? "" : " campo__dica--erro");
-      linha.classList.toggle("horario--fechado", /^fechad/i.test(Z().txt(horario.value)));
     };
-    var fechado = el("button", {
-      type: "button",
-      classe: "botao botao--pequeno",
-      texto: "Fechado",
-      onclick: function () {
-        horario.value = "Fechado";
-        conferir();
-      },
-    });
     horario.addEventListener("input", conferir);
-    var linha = el("div", { classe: "horario" }, [
-      el("strong", { classe: "horario__dia", texto: dia }),
-      el("div", { classe: "horario__campos" }, [el("div", { classe: "horario__linha" }, [horario, fechado]), leitura, obs]),
-    ]);
     linha.lerDados = function () {
       return { dia: dia, horario: Z().txt(horario.value), obs: Z().txt(obs.value), leitura: lerHorario(horario.value) };
     };
     conferir();
     return linha;
+  }
+
+  /** "Segunda: Fechado · Terça a domingo: 11h às 14h e 16h às 23h" (dias seguidos iguais viram um só). */
+  function resumoDaSemana(porDia) {
+    var grupos = [];
+    DIAS.forEach(function (d) {
+      var h = porDia[Z().slug(d)];
+      var r = lerHorario(h ? h.horario : "");
+      var texto = !h || !Z().txt(h.horario) ? "sem horário" : /^fechad/i.test(Z().txt(h.horario)) ? "Fechado" : r.ok ? r.texto.replace(/^Abre /, "").replace(/\.$/, "") : h.horario;
+      var ultimo = grupos[grupos.length - 1];
+      if (ultimo && ultimo.texto === texto) ultimo.fim = d;
+      else grupos.push({ inicio: d, fim: null, texto: texto });
+    });
+    return grupos.map(function (g) {
+      return (g.fim ? g.inicio + " a " + g.fim.toLowerCase() : g.inicio) + ": " + g.texto;
+    });
+  }
+
+  /** Bloco que abre e fecha (fica fechado até a pessoa tocar). */
+  function gaveta(titulo, resumo, filhos) {
+    return el(
+      "details",
+      { classe: "gaveta" },
+      [
+        el("summary", { classe: "gaveta__topo" }, [
+          el("span", { classe: "gaveta__titulo", texto: titulo }),
+          resumo ? el("span", { classe: "gaveta__resumo" }, resumo.map(function (l) {
+            return el("span", { texto: l });
+          })) : null,
+        ]),
+        el("div", { classe: "gaveta__corpo" }, filhos),
+      ],
+    );
   }
 
   function renderBar(site) {
@@ -137,39 +157,61 @@
     pagina.appendChild(conteudo);
     var sobre = site.sobre || {};
 
-    // horários: sempre os 7 dias, na ordem da semana
+    // Aviso: o jeito certo de avisar um dia diferente (feriado), sem mexer no horário da semana
+    conteudo.appendChild(
+      campoTexto(
+        {
+          chave: "aviso_horario",
+          rotulo: "Aviso no site",
+          dica: "Pra um dia diferente (feriado, evento), avise aqui. Ex.: Fechado no feriado de 15/11. Vazio = some.",
+          texto: true,
+        },
+        sobre.aviso_horario,
+      ),
+    );
+
+    // horários da semana: sempre os 7 dias, na ordem da semana
     var porDia = {};
     (site.horarios || []).forEach(function (h) {
       porDia[Z().slug(h.dia)] = h;
     });
-    conteudo.appendChild(el("h2", { classe: "admin-secao__titulo", texto: "Horários" }));
-    conteudo.appendChild(
-      el("p", { classe: "dica", texto: "Com pausa, separe com ponto e vírgula: 11h às 14h; 16h às 23h. Embaixo de cada dia aparece como o site vai entender." }),
-    );
     var linhas = DIAS.map(function (d) {
-      var l = linhaHorario(d, porDia[Z().slug(d)]);
-      conteudo.appendChild(l);
-      return l;
-    });
-    conteudo.appendChild(campoTexto({ chave: "aviso_horario", rotulo: "Aviso embaixo dos horários", dica: "Ex.: Feriados podem mudar. Vazio = some.", texto: true }, sobre.aviso_horario));
-
-    GRUPOS.forEach(function (g) {
-      conteudo.appendChild(el("h2", { classe: "admin-secao__titulo admin-secao__titulo--espaco", texto: g.titulo }));
-      g.campos.forEach(function (c) {
-        conteudo.appendChild(campoTexto(c, sobre[c.chave]));
-      });
+      return linhaHorario(d, porDia[Z().slug(d)]);
     });
     conteudo.appendChild(
-      el(
-        "details",
-        { classe: "avancado" },
-        [el("summary", { texto: "Avançado" })].concat(
-          AVANCADO.map(function (c) {
-            return campoTexto(c, sobre[c.chave]);
+      gaveta(
+        "Horários da semana",
+        resumoDaSemana(porDia),
+        [
+          el("p", {
+            classe: "dica",
+            texto:
+              "Valem toda semana. Com pausa, separe com ponto e vírgula: 11h às 14h; 16h às 23h. Dia que nunca abre: escreva Fechado. Pra fechar só num dia (feriado), use o Aviso acima.",
           }),
-        ),
+        ].concat(linhas),
       ),
     );
+
+    GRUPOS.forEach(function (g, i) {
+      var campos = g.campos.map(function (c) {
+        return campoTexto(c, sobre[c.chave]);
+      });
+      // o link de avaliação fica dentro de "Informações", ainda mais escondido
+      if (i === 0) {
+        campos.push(
+          el(
+            "details",
+            { classe: "avancado" },
+            [el("summary", { texto: "Avançado" })].concat(
+              AVANCADO.map(function (c) {
+                return campoTexto(c, sobre[c.chave]);
+              }),
+            ),
+          ),
+        );
+      }
+      conteudo.appendChild(gaveta(g.titulo, null, campos));
+    });
 
     var salvar = el("button", { type: "button", classe: "botao botao--cheio botao--largo", texto: "Salvar" });
     salvar.addEventListener("click", function () {
@@ -179,7 +221,10 @@
       var errado = horarios.filter(function (h) {
         return !h.leitura.ok;
       })[0];
-      if (errado) return Z().avisar(errado.dia + ": " + errado.leitura.texto, true);
+      if (errado) {
+        conteudo.querySelector(".gaveta").open = true;
+        return Z().avisar(errado.dia + ": " + errado.leitura.texto, true);
+      }
       var dados = {};
       Array.prototype.forEach.call(conteudo.querySelectorAll("[data-chave]"), function (c) {
         dados[c.getAttribute("data-chave")] = Z().txt(c.value);

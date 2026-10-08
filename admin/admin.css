@@ -1233,10 +1233,6 @@ button.botao {
   font-size: 0.78rem;
 }
 
-.vendas-grade--um {
-  grid-template-columns: 1fr;
-  margin-bottom: 8px;
-}
 
 .venda-cartao--fiado strong {
   color: var(--amarelo);
@@ -1269,25 +1265,54 @@ button.botao {
   border-bottom: 1px dashed var(--linha);
 }
 
-.horario__campos {
+/* Blocos que abrem e fecham (Horários, Informações, Refeições) */
+.gaveta {
+  margin: 0 0 10px;
+  border: 1px solid var(--linha);
+  border-radius: 14px;
+  background: var(--fundo-2);
+}
+
+.gaveta__topo {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-width: 0;
+  gap: 4px;
+  padding: 14px 40px 14px 14px;
+  position: relative;
+  cursor: pointer;
+  list-style: none;
 }
 
-.horario__linha {
+.gaveta__topo::-webkit-details-marker {
+  display: none;
+}
+
+.gaveta__topo::after {
+  content: "▾";
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  color: var(--laranja);
+  transition: transform 0.15s;
+}
+
+.gaveta[open] > .gaveta__topo::after {
+  transform: rotate(180deg);
+}
+
+.gaveta__titulo {
+  font-weight: 700;
+}
+
+.gaveta__resumo {
   display: flex;
-  gap: 6px;
-}
-
-.horario__linha input {
-  flex: 1;
-  min-width: 0;
-}
-
-.horario--fechado .horario__dia {
+  flex-direction: column;
   color: var(--texto-suave);
+  font-size: 0.85rem;
+}
+
+.gaveta__corpo {
+  padding: 0 14px 6px;
 }
 
 .avancado {
@@ -1343,6 +1368,16 @@ button.botao {
 
 .foto-admin__botoes .botao:disabled {
   opacity: 0.35;
+}
+
+/* Caixa invisível usada pra copiar quando o celular não deixa usar a área de transferência direto */
+.copiar-fallback {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
 }
 
 /* Período das vendas: Hoje · Ontem · 7 dias · ... */

@@ -18,9 +18,9 @@ Site do Bar do Zazá (Contagem/MG): cardápio, horário de funcionamento, locali
 
 As comandas ficam salvas no próprio celular e funcionam sem internet; cada mudança vai pro banco logo em seguida. Se alguma coisa ficar mais de 2 minutos sem chegar no banco, aparece uma **faixa vermelha** em todas as telas (o que foi lançado continua salvo no celular).
 
-**Vendas:** escolha o período (hoje, ontem, 7 dias, este mês, mês passado ou datas). **Vendido** = contas fechadas ou penduradas no período; **Recebido** = dinheiro que entrou no período, inclusive fiado antigo pago agora; **Pagas** e **Ainda no fiado** separam as vendidas. Depois vêm a lista das comandas, os mais vendidos e o resumo por dia. Períodos com mais de 45 dias são calculados com o histórico do banco (precisa de internet). O **fiado em aberto** fica sempre no topo, com o botão **Mandar lista do fiado**, que gera a lista de quem deve pra mandar pelo WhatsApp (uma cópia fora do sistema).
+**Vendas:** escolha o período (hoje, ontem, 7 dias, este mês, mês passado ou datas). **Vendas** = dinheiro recebido no período: conta paga entra no dia em que foi paga, e fiado entra no dia em que for pago (cada parte no seu dia). **Fiado em aberto** = quem deve agora. Depois vêm as vendas por dia, os mais vendidos e as comandas pagas no período. Períodos com mais de 45 dias são calculados com o histórico do banco (precisa de internet). Pra lista de quem deve: **Copiar lista do fiado** (cola no WhatsApp), **Baixar planilha** (CSV que abre no Excel/Google Planilhas) e, no celular, **Compartilhar**.
 
-**Bar (informações e horários):** a aba **Bar** tem os horários de cada dia (com pausa: `11h às 14h; 16h às 23h`; ou o botão **Fechado**), o aviso embaixo dos horários, endereço, WhatsApp, links (Maps, Instagram, iFood) e as informações das refeições. Embaixo de cada horário aparece como o site vai entender (ex.: "Abre 11h às 14h e 16h às 23h"); horário que o site não entende não deixa salvar. Toque em **Salvar** e já aparece no site.
+**Bar (informações e horários):** no topo fica o **Aviso no site**, que é o jeito de avisar um dia diferente (ex.: "Fechado no feriado de 15/11") sem mexer no horário da semana. Embaixo, três gavetas fechadas: **Horários da semana** (mostra o resumo; toque pra editar. Com pausa: `11h às 14h; 16h às 23h`; dia que nunca abre: `Fechado`), **Informações do bar** (endereço, WhatsApp, links) e **Refeições**. Embaixo de cada horário aparece como o site vai entender; horário que o site não entende não deixa salvar. Toque em **Salvar** e já aparece no site.
 
 **Fotos:** a aba **Fotos** envia fotos do celular pra galeria do site (**+ Adicionar fotos**, dá pra escolher várias). O app diminui cada foto antes de enviar (uma foto de 7 MB vira uns 350 KB). Dá pra pôr legenda, mudar a ordem (↑ ↓) e tirar (o arquivo é apagado). Sem nenhuma foto, a galeria não aparece no site.
 
@@ -67,7 +67,7 @@ assets/dados-planilha.js cópia do banco, GERADA a cada 15 minutos pela Action (
 admin/                   área de edição e comandas pelo celular (sw.js = funciona offline / instalável)
 fotos/                   fotos servidas pelo próprio site
 supabase/migrations/     tabelas, regras e funções do banco
-scripts/                 importar da planilha e backup (rodam no computador, com o .env.local)
+scripts/                 importar da planilha (cardápio e comandas) e backup (rodam no computador, com o .env.local)
 .github/                 Actions "Cópia do cardápio" e "Backup do banco"
 apps-script/             código antigo da planilha (aposentado, fica de referência)
 ```

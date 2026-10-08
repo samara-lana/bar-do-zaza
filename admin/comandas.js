@@ -194,6 +194,20 @@
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
 
   /**
+   * Comanda de antes dos pagamentos em partes: conta paga ganha um pagamento
+   * "legado" do total no dia em que fechou, e toda conta encerrada ganha o dia
+   * da venda. MESMA regra de scripts/importar-comandas.mjs (planilha -> banco):
+   * os dois caminhos têm que gerar exatamente os mesmos dados. Não mexe em
+   * `atualizado` (não é uma mudança de verdade).
+   */
+  function completarAntiga(c) {
+    if (c.status === "paga" && !(c.pagamentos && c.pagamentos.length) && c.fechada) {
+      c.pagamentos = [{ id: "legado", valor: total(c), hora: c.fechada }];
+    }
+    if (!c.vendaEm && (c.status === "paga" || c.status === "pendurada")) c.vendaEm = dataDaVenda(c);
+  }
+
+  /**
    * Primeira vez com o Supabase neste celular: tudo o que está guardado aqui
    * (abertas, fiado e histórico dos últimos dias) vira pendente e sobe pro
    * banco. A marca fica salva junto, então se a internet cair no meio,
@@ -207,6 +221,7 @@
     }
     Object.keys(comandas).forEach(function (id) {
       var c = comandas[id];
+      completarAntiga(c);
       if (c.sincronizado !== false) c.pendenteDesde = Date.now();
       c.sincronizado = false;
     });
@@ -1287,19 +1302,24 @@
     return n + " " + (n === 1 ? um : varios);
   }
 
-  /** Lista de quem deve, pra mandar pra si mesmo no WhatsApp (cópia fora do sistema). */
-  function compartilharFiado() {
-    var fiado = lista("pendurada")
+  // ---------- lista do fiado (copiar / planilha / compartilhar) ----------
+
+  function quemDeve() {
+    return lista("pendurada")
       .filter(function (c) {
         return saldo(c) > 0;
       })
       .sort(function (a, b) {
         return saldo(b) - saldo(a);
       });
+  }
+
+  function textoDoFiado() {
+    var fiado = quemDeve();
     var soma = fiado.reduce(function (s, c) {
       return s + saldo(c);
     }, 0);
-    var texto =
+    return (
       "Fiado · Bar do Zazá · " +
       dataLonga(Date.now()) +
       "\n\n" +
@@ -1312,42 +1332,67 @@
       "\n\nTotal: " +
       dinheiro(soma) +
       " · " +
-      plural(fiado.length, "pessoa", "pessoas");
-    if (navigator.share) {
-      navigator.share({ title: "Fiado · Bar do Zazá", text: texto }).catch(function () {});
-    } else {
-      window.open("https://wa.me/?text=" + encodeURIComponent(texto), "_blank");
-    }
+      plural(fiado.length, "pessoa", "pessoas")
+    );
   }
+
+  /** Copia pro WhatsApp (ou qualquer lugar). Sem HTTPS o navigator.clipboard não existe: usa o jeito antigo. */
+  function copiarFiado() {
+    var texto = textoDoFiado();
+    var copiado = navigator.clipboard && window.isSecureContext ? navigator.clipboard.writeText(texto) : Promise.reject();
+    copiado
+      .catch(function () {
+        var area = el("textarea", { readonly: "readonly", "aria-hidden": "true", classe: "copiar-fallback" });
+        area.value = texto;
+        document.body.appendChild(area);
+        area.select();
+        var ok = document.execCommand("copy");
+        area.remove();
+        if (!ok) throw new Error();
+      })
+      .then(
+        function () {
+          Z().avisar("Lista copiada. Cole no WhatsApp.");
+        },
+        function () {
+          Z().avisar("Não consegui copiar neste celular.", true);
+        },
+      );
+  }
+
+  /** Planilha (CSV) com ";" e vírgula decimal: abre certinho no Excel e no Google Planilhas em português. */
+  function baixarFiado() {
+    var num = function (n) {
+      return centavos(n).toFixed(2).replace(".", ",");
+    };
+    var campo = function (t) {
+      return '"' + String(t).replace(/"/g, '""') + '"';
+    };
+    var linhas = [["Cliente", "Deve (R$)", "Já pagou (R$)", "Total da conta (R$)", "Desde"].map(campo).join(";")];
+    quemDeve().forEach(function (c) {
+      linhas.push([campo(c.cliente), num(saldo(c)), num(pago(c)), num(total(c)), campo(dataLonga(dataDaVenda(c)))].join(";"));
+    });
+    var blob = new Blob(["﻿" + linhas.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    var link = el("a", { href: URL.createObjectURL(blob), download: "fiado-bar-do-zaza-" + paraCampo(Date.now()) + ".csv" });
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function () {
+      URL.revokeObjectURL(link.href);
+    }, 5000);
+  }
+
+  function compartilharFiado() {
+    navigator.share({ title: "Fiado · Bar do Zazá", text: textoDoFiado() }).catch(function () {});
+  }
+
+  // ---------- tela de vendas ----------
 
   function renderVendas() {
     var pagina = $("pagina-vendas");
     pagina.innerHTML = "";
     var conteudo = el("div", { classe: "conteudo" });
     pagina.appendChild(conteudo);
-
-    // fiado em aberto: é de agora, não do período
-    var fiado = lista("pendurada").filter(function (c) {
-      return saldo(c) > 0;
-    });
-    var totalFiado = fiado.reduce(function (s, c) {
-      return s + saldo(c);
-    }, 0);
-    conteudo.appendChild(
-      el("div", { classe: "vendas-grade vendas-grade--um" }, [
-        cartao("Fiado em aberto · hoje", totalFiado, plural(fiado.length, "pessoa devendo", "pessoas devendo"), "venda-cartao--fiado"),
-      ]),
-    );
-    if (fiado.length) {
-      conteudo.appendChild(
-        el("button", {
-          type: "button",
-          classe: "botao botao--pequeno botao--largo",
-          texto: "Mandar lista do fiado (WhatsApp)",
-          onclick: compartilharFiado,
-        }),
-      );
-    }
 
     // escolha do período
     var botoes = el("div", { classe: "periodos", role: "group", "aria-label": "Período" });
@@ -1366,7 +1411,6 @@
         }),
       );
     });
-    conteudo.appendChild(el("h2", { classe: "admin-secao__titulo admin-secao__titulo--espaco", texto: "Vendas" }));
     conteudo.appendChild(botoes);
     if (periodo.tipo === "datas") {
       var campoDe = el("input", { type: "date", "aria-label": "De", max: paraCampo(Date.now()) });
@@ -1407,92 +1451,94 @@
       });
   }
 
+  /**
+   * Vendas = dinheiro que entrou no período (como sempre foi): conta paga
+   * entra no dia em que foi paga; fiado entra no dia em que for pago (cada
+   * parte no seu dia). O fiado em aberto é o de agora, não do período.
+   */
   function desenharPeriodo(caixa, todas, iv, doBanco) {
     var dentro = function (ms) {
       return ms >= iv.de && ms < iv.ate;
     };
-    var vendidas = todas
-      .filter(function (c) {
-        return (c.status === "paga" || c.status === "pendurada") && dentro(dataDaVenda(c));
-      })
-      .sort(function (a, b) {
-        return dataDaVenda(b) - dataDaVenda(a);
-      });
     var entradas = [];
+    var recebido = {}; // id -> quanto entrou no período
     todas.forEach(function (c) {
       if (c.status === "excluida") return;
       recebimentos(c).forEach(function (p) {
-        if (p.hora && dentro(p.hora)) entradas.push({ c: c, valor: Number(p.valor) || 0, hora: p.hora });
+        if (!p.hora || !dentro(p.hora)) return;
+        entradas.push({ c: c, valor: Number(p.valor) || 0, hora: p.hora });
+        recebido[c.id] = centavos((recebido[c.id] || 0) + (Number(p.valor) || 0));
       });
     });
-
-    var soma = function (arr, f) {
-      return centavos(
-        arr.reduce(function (s, x) {
-          return s + f(x);
-        }, 0),
-      );
-    };
-    var quitadas = vendidas.filter(function (c) {
-      return saldo(c) === 0;
+    var pagantes = todas.filter(function (c) {
+      return recebido[c.id] != null;
     });
-    var devendo = vendidas.filter(function (c) {
-      return saldo(c) > 0;
-    });
-    var descontos = soma(vendidas, valorDesconto);
+    var totalRecebido = centavos(
+      entradas.reduce(function (s, x) {
+        return s + x.valor;
+      }, 0),
+    );
+    var fiado = quemDeve();
+    var totalFiado = fiado.reduce(function (s, c) {
+      return s + saldo(c);
+    }, 0);
+    var descontos = centavos(
+      pagantes.reduce(function (s, c) {
+        return s + valorDesconto(c);
+      }, 0),
+    );
 
     caixa.appendChild(
       el("div", { classe: "vendas-grade" }, [
-        cartao("Vendido", soma(vendidas, total), plural(vendidas.length, "comanda", "comandas")),
-        cartao("Recebido", soma(entradas, function (x) {
-          return x.valor;
-        }), plural(entradas.length, "pagamento", "pagamentos")),
-        cartao("Pagas", soma(quitadas, total), plural(quitadas.length, "comanda", "comandas"), "venda-cartao--pago"),
-        cartao("Ainda no fiado", soma(devendo, saldo), plural(devendo.length, "comanda", "comandas"), "venda-cartao--fiado"),
+        cartao("Vendas", totalRecebido, plural(pagantes.length, "comanda", "comandas")),
+        cartao("Fiado em aberto", totalFiado, plural(fiado.length, "pessoa", "pessoas") + " · hoje", "venda-cartao--fiado"),
       ]),
     );
     caixa.appendChild(
       el("p", {
         classe: "nota",
         texto:
-          (descontos > 0 ? "Descontos dados: " + dinheiro(descontos) + ". " : "") +
-          "Vendido = contas fechadas ou penduradas no período. Recebido = dinheiro que entrou no período, inclusive fiado antigo. Até 5h da manhã conta como a noite anterior." +
+          "Conta o que foi recebido. Fiado entra no dia em que for pago. Até 5h da manhã ainda conta como a noite anterior." +
+          (descontos > 0 ? " Descontos dados: " + dinheiro(descontos) + "." : "") +
           (doBanco ? " Período antigo: calculado com o histórico do banco." : ""),
       }),
     );
-
-    // comandas do período
-    caixa.appendChild(el("h2", { classe: "admin-secao__titulo admin-secao__titulo--espaco", texto: "Comandas (" + vendidas.length + ")" }));
-    if (!vendidas.length) caixa.appendChild(el("p", { classe: "vazio-texto", texto: "Nenhuma conta fechada nesse período." }));
-    var LIMITE_LISTA = 60;
-    vendidas.slice(0, LIMITE_LISTA).forEach(function (c) {
-      var falta = saldo(c);
-      var situacao =
-        falta === 0 ? "pago" : pago(c) > 0 ? "pagou parte · falta " + dinheiro(falta) : "fiado";
-      var filhos = [
-        el("span", { classe: "venda-linha__nome" }, [
-          c.cliente,
-          el("small", { texto: dataCurta(dataDaVenda(c)) + " às " + hora(dataDaVenda(c)) }),
-        ]),
-        el("span", { classe: "venda-linha__valor" }, [
-          dinheiro(total(c)),
-          el("small", { classe: "selo-situacao selo-situacao--" + (falta === 0 ? "pago" : "fiado"), texto: situacao }),
-        ]),
+    if (fiado.length) {
+      var ferramentas = [
+        el("button", { type: "button", classe: "botao botao--pequeno", texto: "Copiar lista do fiado", onclick: copiarFiado }),
+        el("button", { type: "button", classe: "botao botao--pequeno", texto: "Baixar planilha", onclick: baixarFiado }),
       ];
-      // Só abre a conta das comandas que estão no celular
-      caixa.appendChild(
-        comandas[c.id]
-          ? el("a", { classe: "venda-linha", href: "#conta/" + encodeURIComponent(c.id) }, filhos)
-          : el("div", { classe: "venda-linha" }, filhos),
-      );
-    });
-    if (vendidas.length > LIMITE_LISTA) {
-      caixa.appendChild(el("p", { classe: "nota", texto: "E mais " + (vendidas.length - LIMITE_LISTA) + " comandas." }));
+      if (navigator.share) {
+        ferramentas.push(el("button", { type: "button", classe: "botao botao--pequeno", texto: "Compartilhar", onclick: compartilharFiado }));
+      }
+      caixa.appendChild(el("div", { classe: "linha-botoes" }, ferramentas));
     }
 
-    // mais vendidos no período
+    // por dia
+    var porDia = {};
+    entradas.forEach(function (x) {
+      var d = diaDoBar(x.hora);
+      porDia[d] = porDia[d] || { total: 0, ids: {} };
+      porDia[d].total = centavos(porDia[d].total + x.valor);
+      porDia[d].ids[x.c.id] = true;
+    });
+    var dias = Object.keys(porDia).sort().reverse();
+    caixa.appendChild(el("h2", { classe: "admin-secao__titulo admin-secao__titulo--espaco", texto: "Por dia" }));
+    if (!dias.length) caixa.appendChild(el("p", { classe: "vazio-texto", texto: "Nenhuma venda nesse período." }));
+    dias.forEach(function (d) {
+      var p = d.split("-");
+      var n = Object.keys(porDia[d].ids).length;
+      caixa.appendChild(
+        el("div", { classe: "linha-simples" }, [
+          el("span", { texto: p[2] + "/" + p[1] + " · " + plural(n, "comanda", "comandas") }),
+          el("strong", { texto: dinheiro(porDia[d].total) }),
+        ]),
+      );
+    });
+
+    // mais vendidos (itens das comandas pagas no período)
     var conta = {};
-    vendidas.forEach(function (c) {
+    pagantes.forEach(function (c) {
       (c.lancamentos || []).forEach(function (l) {
         conta[l.nome] = (conta[l.nome] || 0) + 1;
       });
@@ -1508,37 +1554,38 @@
       caixa.appendChild(el("div", { classe: "linha-simples" }, [el("span", { texto: n }), el("strong", { texto: conta[n] + "×" })]));
     });
 
-    // por dia (vendido e recebido)
-    var porDia = {};
-    var dia = function (d) {
-      return (porDia[d] = porDia[d] || { vendido: 0, qtd: 0, recebido: 0 });
-    };
-    vendidas.forEach(function (c) {
-      var d = dia(diaDoBar(dataDaVenda(c)));
-      d.vendido = centavos(d.vendido + total(c));
-      d.qtd++;
+    // comandas pagas no período (quanto entrou de cada uma)
+    var LIMITE_LISTA = 60;
+    pagantes.sort(function (a, b) {
+      return ultimoRecebimento(b, dentro) - ultimoRecebimento(a, dentro);
     });
-    entradas.forEach(function (x) {
-      var d = dia(diaDoBar(x.hora));
-      d.recebido = centavos(d.recebido + x.valor);
+    caixa.appendChild(el("h2", { classe: "admin-secao__titulo admin-secao__titulo--espaco", texto: "Comandas pagas (" + pagantes.length + ")" }));
+    pagantes.slice(0, LIMITE_LISTA).forEach(function (c) {
+      var falta = saldo(c);
+      var quando = ultimoRecebimento(c, dentro);
+      var filhos = [
+        el("span", { classe: "venda-linha__nome" }, [c.cliente, el("small", { texto: dataCurta(quando) + " às " + hora(quando) })]),
+        el("span", { classe: "venda-linha__valor" }, [
+          dinheiro(recebido[c.id]),
+          falta > 0 ? el("small", { classe: "selo-situacao selo-situacao--fiado", texto: "pagou parte · falta " + dinheiro(falta) }) : null,
+        ]),
+      ];
+      // Só abre a conta das comandas que estão no celular
+      caixa.appendChild(
+        comandas[c.id]
+          ? el("a", { classe: "venda-linha", href: "#conta/" + encodeURIComponent(c.id) }, filhos)
+          : el("div", { classe: "venda-linha" }, filhos),
+      );
     });
-    var dias = Object.keys(porDia).sort().reverse();
-    if (dias.length > 1) {
-      caixa.appendChild(el("h2", { classe: "admin-secao__titulo admin-secao__titulo--espaco", texto: "Por dia" }));
-      dias.forEach(function (d) {
-        var p = d.split("-");
-        var x = porDia[d];
-        caixa.appendChild(
-          el("div", { classe: "linha-simples" }, [
-            el("span", {}, [
-              p[2] + "/" + p[1] + " · " + plural(x.qtd, "comanda", "comandas"),
-              el("small", { classe: "linha-simples__detalhe", texto: "recebido " + dinheiro(x.recebido) }),
-            ]),
-            el("strong", { texto: dinheiro(x.vendido) }),
-          ]),
-        );
-      });
+    if (pagantes.length > LIMITE_LISTA) {
+      caixa.appendChild(el("p", { classe: "nota", texto: "E mais " + (pagantes.length - LIMITE_LISTA) + " comandas." }));
     }
+  }
+
+  function ultimoRecebimento(c, dentro) {
+    return recebimentos(c).reduce(function (m, p) {
+      return p.hora && dentro(p.hora) ? Math.max(m, p.hora) : m;
+    }, 0);
   }
 
   // ---------- roteamento (chamado pelo admin.js) ----------
