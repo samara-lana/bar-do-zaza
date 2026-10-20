@@ -49,6 +49,7 @@
       <header class="barra" id="barra">
         <h1 class="barra__titulo">Zazá</h1>
         <span class="sync" id="sync" role="status"></span>
+        <button class="barra__link barra__link--forte" type="button" id="botao-instalar" hidden>Instalar app</button>
         <a class="barra__link" href="../" target="_blank" rel="noopener">Ver site</a>
         <button class="barra__link" type="button" id="botao-sair">Sair</button>
       </header>
@@ -56,12 +57,19 @@
         <a href="#comandas" data-pagina="comandas">Comandas</a>
         <a href="#cardapio" data-pagina="cardapio">Cardápio</a>
         <a href="#vendas" data-pagina="vendas">Vendas</a>
+        <a href="#bar" data-pagina="bar">Bar</a>
+        <a href="#fotos" data-pagina="fotos">Fotos</a>
       </nav>
+
+      <!-- Aparece em todas as telas (até dentro da comanda) quando algo não chega no banco -->
+      <p class="alerta-envio" id="alerta-envio" role="alert" hidden></p>
 
       <div class="pagina" id="pagina-comandas" hidden></div>
       <div class="pagina" id="pagina-comanda" hidden></div>
       <div class="pagina" id="pagina-conta" hidden></div>
       <div class="pagina" id="pagina-vendas" hidden></div>
+      <div class="pagina" id="pagina-bar" hidden></div>
+      <div class="pagina" id="pagina-fotos" hidden></div>
 
       <div class="pagina" id="pagina-cardapio" hidden>
         <nav class="abas" id="abas" aria-label="Seções"></nav>
@@ -144,6 +152,7 @@
 
     <script src="../assets/config.js"></script>
     <script src="comandas.js"></script>
+    <script src="site.js"></script>
     <script src="admin.js"></script>
   </body>
 </html>

@@ -1,19 +1,19 @@
-name: Cópia da planilha
+name: Cópia do cardápio
 
-# A cada 15 minutos guarda no site uma cópia do conteúdo da planilha, para quem
-# abre o site pela primeira vez não ver um cardápio velho quando o Google demora.
+# Uma vez por dia (5h) grava no site (assets/dados-planilha.js) o conteúdo do
+# banco, que o site usa quando o banco demora a responder. Só lê o que já é
+# público (função site(), com a chave anon de assets/config.js).
+#
+# O backup das comandas NÃO passa pelo GitHub: fica na planilha
+# "Bar do Zazá · Backup" do Google (ver backup-planilha/).
 on:
   schedule:
-    - cron: "7,22,37,52 * * * *"
+    - cron: "0 8 * * *" # 8h UTC = 5h em Brasília
   workflow_dispatch:
 
 permissions:
   contents: write
   pages: write
-
-concurrency:
-  group: dados-planilha
-  cancel-in-progress: false
 
 jobs:
   copiar:
@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - run: node .github/scripts/dados-planilha.mjs
       - name: Publicar se mudou
         env:
@@ -32,7 +32,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add assets/dados-planilha.js
-          git commit -m "Cópia da planilha atualizada"
+          git commit -m "Cópia do cardápio atualizada"
           git pull --rebase
           git push
           # Garante que o GitHub Pages republique o site

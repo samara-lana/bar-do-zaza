@@ -3,7 +3,7 @@
 
   var FUSO = "America/Sao_Paulo";
   var CHAVE_CACHE = "zaza_dados_v2";
-  var TEMPO_LIMITE_MS = 45000;
+  var TEMPO_LIMITE_MS = 15000;
 
   var DIAS = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
   var DIAS_EXIBICAO = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
@@ -620,7 +620,7 @@
 
   /**
    * Entre o que este celular guardou e a cópia que a Action do GitHub tira da
-   * planilha a cada 15 minutos (assets/dados-planilha.js), fica a mais recente.
+   * banco uma vez por dia (assets/dados-planilha.js), fica a mais recente.
    * Assim quem abre o site pela primeira vez não cai no padrão velho do código.
    */
   function maisRecente(a, b) {
@@ -629,15 +629,22 @@
     return txt(b.atualizado) > txt(a.atualizado) ? b : a;
   }
 
-  function buscarPlanilha(tentativa) {
+  /** Cardápio, horários, fotos e textos numa chamada só (função site() do banco). */
+  function buscarDados(tentativa) {
     tentativa = tentativa || 1;
-    var url = txt(window.APPS_SCRIPT_URL);
-    if (!url) return;
+    var base = txt(window.SUPABASE_URL);
+    var chave = txt(window.SUPABASE_ANON_KEY);
+    if (!base || !chave) return;
     var controle = "AbortController" in window ? new AbortController() : null;
     var timer = setTimeout(function () {
       if (controle) controle.abort();
     }, TEMPO_LIMITE_MS);
-    fetch(url, { signal: controle ? controle.signal : undefined })
+    fetch(base + "/rest/v1/rpc/site", {
+      method: "POST",
+      headers: { apikey: chave, Authorization: "Bearer " + chave, "Content-Type": "application/json" },
+      body: "{}",
+      signal: controle ? controle.signal : undefined,
+    })
       .then(function (r) {
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
@@ -648,13 +655,13 @@
         render(mesclar(json));
       })
       .catch(function (e) {
-        // O Google às vezes demora pra acordar o script ou responde erro: tenta mais uma vez
+        // Falha de rede passageira: tenta mais uma vez
         if (tentativa < 2) {
           setTimeout(function () {
-            buscarPlanilha(tentativa + 1);
+            buscarDados(tentativa + 1);
           }, 3000);
         } else {
-          console.warn("Planilha indisponível, usando o cardápio salvo:", e);
+          console.warn("Banco indisponível, usando o cardápio salvo:", e);
         }
       })
       .then(function () {
@@ -663,7 +670,7 @@
   }
 
   render(mesclar(maisRecente(lerCache(), window.DADOS_PLANILHA)));
-  buscarPlanilha();
+  buscarDados();
 
   // Atualiza "aberto agora" e "servindo agora" sem precisar recarregar a página.
   setInterval(function () {

@@ -1,9 +1,9 @@
 (function () {
   "use strict";
 
-  // Só o token da sessão fica no celular. A senha é conferida no Apps Script
-  // (apps-script/Admin.js) e não aparece em lugar nenhum do código do site.
-  var CHAVE_TOKEN = "zaza_admin_token";
+  // Só a sessão do Supabase fica no celular, nunca a senha. O e-mail do admin
+  // está em assets/config.js; na tela o Zazá digita só a senha.
+  var CHAVE_SESSAO = "zaza_admin_sessao";
   // Cardápio guardado no celular: o admin abre na hora e atualiza por trás
   var CHAVE_CARDAPIO = "zaza_admin_cardapio";
   var NOVA_SECAO = "__nova__";
@@ -74,49 +74,216 @@
     $("carregando").hidden = !sim;
   }
 
-  // ---------- API ----------
+  // ---------- API (Supabase) ----------
 
-  function token() {
+  // Sessão do Supabase Auth: o token de acesso vale 1 hora e é renovado
+  // sozinho com o refresh_token. Sem internet, a sessão continua guardada:
+  // as comandas seguem salvas no celular e vão quando a conexão voltar.
+  var TEMPO_LIMITE_MS = 20000;
+
+  function sessao() {
     try {
-      return localStorage.getItem(CHAVE_TOKEN) || "";
+      return JSON.parse(localStorage.getItem(CHAVE_SESSAO) || "null");
     } catch (e) {
-      return "";
+      return null;
     }
   }
 
-  function guardarToken(t) {
+  function guardarSessao(s) {
     try {
-      if (t) localStorage.setItem(CHAVE_TOKEN, t);
-      else localStorage.removeItem(CHAVE_TOKEN);
+      if (s) localStorage.setItem(CHAVE_SESSAO, JSON.stringify(s));
+      else localStorage.removeItem(CHAVE_SESSAO);
     } catch (e) {
       /* sem armazenamento: vai pedir a senha de novo na próxima vez */
     }
   }
 
-  /** text/plain evita a checagem extra de CORS que o Apps Script não responde. */
-  function api(acao, dados) {
-    var corpo = Object.assign({ acao: acao, token: token() }, dados || {});
-    return fetch(window.APPS_SCRIPT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(corpo),
-    })
-      .then(function (r) {
-        if (!r.ok) throw new Error("Sem conexão com a planilha (" + r.status + ").");
-        return r.json();
+  function sessaoExpirada(msg) {
+    guardarSessao(null);
+    mostrarLogin(msg || "Sua sessão expirou. Entre de novo.");
+    return new Error(msg || "Sua sessão expirou. Entre de novo.");
+  }
+
+  /** fetch com limite de tempo: rede ruim no bar não pode deixar o envio preso pra sempre. */
+  function buscar(caminho, opcoes) {
+    var controle = "AbortController" in window ? new AbortController() : null;
+    var timer = setTimeout(function () {
+      if (controle) controle.abort();
+    }, TEMPO_LIMITE_MS);
+    opcoes.signal = controle ? controle.signal : undefined;
+    opcoes.headers = Object.assign({ apikey: window.SUPABASE_ANON_KEY, "Content-Type": "application/json" }, opcoes.headers);
+    return fetch(window.SUPABASE_URL + caminho, opcoes)
+      .catch(function () {
+        throw new Error("Sem internet? Não consegui falar com o servidor.");
       })
-      .catch(function (e) {
-        if (e instanceof TypeError) throw new Error("Sem internet? Não consegui falar com a planilha.");
-        throw e;
-      })
       .then(function (r) {
-        if (r.ok) return r;
-        if (r.erro === "sessao") {
-          guardarToken("");
-          mostrarLogin(r.mensagem);
-        }
-        throw new Error(r.mensagem || r.erro || "Algo deu errado.");
+        clearTimeout(timer);
+        return r.json().catch(function () {
+          return null;
+        }).then(function (corpo) {
+          return { status: r.status, corpo: corpo };
+        });
       });
+  }
+
+  function entrar(senha) {
+    return buscar("/auth/v1/token?grant_type=password", {
+      method: "POST",
+      body: JSON.stringify({ email: window.ADMIN_EMAIL, password: senha }),
+    }).then(function (r) {
+      if (r.status === 400 || r.status === 401) throw new Error("Senha errada.");
+      if (r.status === 429) throw new Error("Muitas tentativas. Espere alguns minutos.");
+      if (r.status >= 400 || !r.corpo || !r.corpo.access_token) throw new Error("Não consegui entrar (" + r.status + ").");
+      guardarSessao(novaSessao(r.corpo));
+    });
+  }
+
+  function novaSessao(c) {
+    return { access_token: c.access_token, refresh_token: c.refresh_token, expira: Date.now() + (c.expires_in || 3600) * 1000 };
+  }
+
+  // Uma renovação por vez: o refresh_token só pode ser usado uma vez
+  var renovando = null;
+  function tokenValido() {
+    var s = sessao();
+    if (!s) return Promise.reject(sessaoExpirada());
+    if (s.expira - Date.now() > 60000) return Promise.resolve(s.access_token);
+    if (!renovando) {
+      renovando = buscar("/auth/v1/token?grant_type=refresh_token", {
+        method: "POST",
+        body: JSON.stringify({ refresh_token: s.refresh_token }),
+      })
+        .then(function (r) {
+          if (r.status >= 400 && r.status < 500) throw sessaoExpirada();
+          if (r.status >= 400 || !r.corpo || !r.corpo.access_token) throw new Error("Servidor fora do ar (" + r.status + ").");
+          guardarSessao(novaSessao(r.corpo));
+          return r.corpo.access_token;
+        })
+        .then(
+          function (t) {
+            renovando = null;
+            return t;
+          },
+          function (e) {
+            renovando = null;
+            throw e;
+          },
+        );
+    }
+    return renovando;
+  }
+
+  /**
+   * Mesmas ações de quando era a planilha, agora nas funções do banco
+   * (supabase/migrations). Cada uma devolve { ok, ... } como antes.
+   */
+  var ACOES = {
+    listar: function () {
+      return ["admin_listar", {}, "cardapio"];
+    },
+    salvarItem: function (d) {
+      return ["admin_salvar_item", { original: d.original || null, item: d.item }, "cardapio"];
+    },
+    excluirItem: function (d) {
+      return ["admin_excluir_item", { original: d.original }, "cardapio"];
+    },
+    emFalta: function (d) {
+      return ["admin_em_falta", { secao: d.secao, nome: d.nome, opcao: d.opcao || "", valor: d.valor === true }, "cardapio"];
+    },
+    salvarComandas: function (d) {
+      return ["salvar_comandas", { lista: d.comandas }, null];
+    },
+    listarComandas: function (d) {
+      return ["listar_comandas", { dias: d.dias }, null];
+    },
+    vendasPeriodo: function (d) {
+      return ["vendas_periodo", { de: Math.round(d.de), ate: Math.round(d.ate) }, null];
+    },
+    // Informações, horários e fotos do site (admin/site.js): devolvem { ok, site }
+    lerSite: function () {
+      return ["site", {}, "site"];
+    },
+    salvarSobre: function (d) {
+      return ["admin_salvar_sobre", { dados: d.dados }, "site"];
+    },
+    salvarHorarios: function (d) {
+      return ["admin_salvar_horarios", { lista: d.lista }, "site"];
+    },
+    salvarFotos: function (d) {
+      return ["admin_salvar_fotos", { lista: d.lista }, "site"];
+    },
+  };
+
+  function api(acao, dados) {
+    var a = ACOES[acao] && ACOES[acao](dados || {});
+    if (!a) return Promise.reject(new Error("Ação desconhecida: " + acao));
+    return tokenValido()
+      .then(function (t) {
+        return buscar("/rest/v1/rpc/" + a[0], {
+          method: "POST",
+          headers: { Authorization: "Bearer " + t },
+          body: JSON.stringify(a[1]),
+        });
+      })
+      .then(function (r) {
+        var c = r.corpo || {};
+        if (r.status < 400) {
+          if (!a[2]) return c;
+          var saida = { ok: true };
+          saida[a[2]] = c;
+          return saida;
+        }
+        if (r.status === 401 || c.message === "sessao" || /jwt/i.test(c.message || "")) {
+          throw sessaoExpirada(c.hint);
+        }
+        throw new Error(c.message || "Algo deu errado (" + r.status + ").");
+      });
+  }
+
+  /**
+   * Fotos no Storage do Supabase (bucket público "fotos"): enviar e apagar.
+   * Envio tem mais tempo que o resto (foto em rede ruim demora).
+   */
+  function enviarFoto(nome, blob) {
+    return tokenValido().then(function (t) {
+      var controle = "AbortController" in window ? new AbortController() : null;
+      var timer = setTimeout(function () {
+        if (controle) controle.abort();
+      }, 90000);
+      return fetch(window.SUPABASE_URL + "/storage/v1/object/fotos/" + encodeURIComponent(nome), {
+        method: "POST",
+        headers: { apikey: window.SUPABASE_ANON_KEY, Authorization: "Bearer " + t, "Content-Type": blob.type || "image/jpeg", "Cache-Control": "31536000" },
+        body: blob,
+        signal: controle ? controle.signal : undefined,
+      })
+        .catch(function () {
+          throw new Error("Sem internet? A foto não foi enviada.");
+        })
+        .then(function (r) {
+          clearTimeout(timer);
+          if (r.status === 401 || r.status === 403) throw sessaoExpirada();
+          if (!r.ok) {
+            return r.text().then(function (x) {
+              throw new Error("A foto não foi enviada (" + r.status + "): " + x.slice(0, 120));
+            });
+          }
+          return window.SUPABASE_URL + "/storage/v1/object/public/fotos/" + encodeURIComponent(nome);
+        });
+    });
+  }
+
+  /** Apaga do Storage uma foto que saiu da galeria (falhar aqui não é grave: só sobra o arquivo). */
+  function apagarFoto(url) {
+    var prefixo = window.SUPABASE_URL + "/storage/v1/object/public/fotos/";
+    if (url.indexOf(prefixo) !== 0) return Promise.resolve();
+    var nome = decodeURIComponent(url.slice(prefixo.length));
+    return tokenValido().then(function (t) {
+      return buscar("/storage/v1/object/fotos", {
+        method: "DELETE",
+        headers: { Authorization: "Bearer " + t },
+        body: JSON.stringify({ prefixes: [nome] }),
+      });
+    });
   }
 
   // ---------- telas ----------
@@ -153,6 +320,7 @@
       a.setAttribute("aria-current", a.getAttribute("data-pagina") === pagina ? "page" : "false");
     });
     if (pagina === "cardapio") render();
+    else if (pagina === "bar" || pagina === "fotos") window.Site.mostrar(pagina);
     else window.Comandas.mostrar(pagina, decodeURIComponent(partes[1] || ""));
     window.scrollTo(0, 0);
   }
@@ -165,9 +333,8 @@
     botao.disabled = true;
     botao.textContent = "Entrando…";
     $("erro-login").textContent = "";
-    api("login", { senha: $("senha").value })
-      .then(function (r) {
-        guardarToken(r.token);
+    entrar($("senha").value)
+      .then(function () {
         return carregar();
       })
       .catch(function (e) {
@@ -180,8 +347,11 @@
   });
 
   $("botao-sair").addEventListener("click", function () {
-    api("sair").catch(function () {});
-    guardarToken("");
+    var s = sessao();
+    if (s) {
+      buscar("/auth/v1/logout", { method: "POST", headers: { Authorization: "Bearer " + s.access_token } }).catch(function () {});
+    }
+    guardarSessao(null);
     mostrarLogin();
   });
 
@@ -210,7 +380,7 @@
 
   /**
    * Com cardápio guardado, abre na hora e busca o atualizado por trás (a
-   * planilha leva uns segundos pra responder). Sem ele, espera a planilha.
+   * rede do bar pode demorar). Sem ele, espera o servidor.
    */
   function carregar() {
     var guardado = cardapioGuardado();
@@ -238,7 +408,7 @@
 
   // ---------- lista ----------
 
-  /** Mesma regra do site: seções na ordem da planilha, linhas de mesmo nome = um item. */
+  /** Mesma regra do site: seções na ordem do cardápio, linhas de mesmo nome = um item. */
   function agrupar() {
     var secoes = [];
     var porSecao = {};
@@ -622,6 +792,8 @@
 
   window.Zaza = {
     api: api,
+    enviarFoto: enviarFoto,
+    apagarFoto: apagarFoto,
     el: el,
     txt: txt,
     slug: slug,
@@ -635,9 +807,34 @@
 
   // ---------- início ----------
 
-  if (!txt(window.APPS_SCRIPT_URL)) {
-    document.body.textContent = "Falta configurar a planilha (assets/config.js).";
-  } else if (token()) {
+  // Guarda as telas do admin no celular: abre mesmo sem internet e dá pra instalar como app
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(function (e) {
+      console.warn("Sem modo offline:", e);
+    });
+  }
+
+  // Android/Chrome: botão "Instalar app" (só aparece quando ainda não está instalado)
+  var pedidoInstalar = null;
+  window.addEventListener("beforeinstallprompt", function (ev) {
+    ev.preventDefault();
+    pedidoInstalar = ev;
+    $("botao-instalar").hidden = false;
+  });
+  $("botao-instalar").addEventListener("click", function () {
+    if (!pedidoInstalar) return;
+    pedidoInstalar.prompt();
+    pedidoInstalar = null;
+    $("botao-instalar").hidden = true;
+  });
+  window.addEventListener("appinstalled", function () {
+    $("botao-instalar").hidden = true;
+    avisar("Pronto! O Zazá agora está na tela inicial.");
+  });
+
+  if (!txt(window.SUPABASE_URL) || !txt(window.ADMIN_EMAIL)) {
+    document.body.textContent = "Falta configurar o banco (assets/config.js).";
+  } else if (sessao()) {
     carregar();
   } else {
     mostrarLogin();
