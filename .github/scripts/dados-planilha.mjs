@@ -1,7 +1,7 @@
 // Baixa o conteúdo do banco (função site() do Supabase) e grava em
 // assets/dados-planilha.js, que o site usa quando o banco demora a responder.
 // Só regrava se algo mudou de fato (o campo `atualizado` muda a toda leitura
-// e não conta). Rodar a cada 15 minutos também mantém o projeto gratuito do
+// e não conta). Rodar todo dia também mantém o projeto gratuito do
 // Supabase acordado (ele pausa depois de 7 dias sem uso).
 // Uso: node .github/scripts/dados-planilha.mjs
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
@@ -54,7 +54,7 @@ if (antigo && semData(antigo) === semData(novo)) {
 } else {
   writeFileSync(
     ARQUIVO,
-    "// GERADO pela Action \"Cópia do cardápio\" (.github/workflows/dados-planilha.yml): não edite.\n" +
+    "// GERADO pela Action \"Cópia do cardápio\" (.github/workflows/copia-cardapio.yml): não edite.\n" +
       PREFIXO + JSON.stringify(novo) + ";\n"
   );
   console.log("Cópia atualizada.");

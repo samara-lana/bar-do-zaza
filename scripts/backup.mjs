@@ -1,10 +1,8 @@
 // Cópia de segurança do banco inteiro (cardápio, horários, fotos, sobre,
-// comandas e lançamentos, inclusive os removidos) num arquivo JSON.
+// comandas, lançamentos e pagamentos, inclusive os removidos) num arquivo JSON.
 // O plano gratuito do Supabase não faz backup sozinho.
 //
-// Uso local: node scripts/backup.mjs            -> backups/zaza-AAAA-MM-DD-HHhMM.json
-// Na Action (backup.yml) as variáveis vêm dos segredos do GitHub e o arquivo
-// sai criptografado: o repositório é público.
+// Uso: node scripts/backup.mjs   -> backups/zaza-AAAA-MM-DD-HHhMM.json (fora do git)
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 
 if (existsSync(".env.local")) process.loadEnvFile(".env.local");
@@ -33,6 +31,7 @@ const copia = {
   sobre: await tudo("sobre", "chave"),
   comandas: await tudo("comandas", "aberta"),
   lancamentos: await tudo("lancamentos", "comanda_id,ordem"),
+  pagamentos: await tudo("pagamentos", "comanda_id,hora"),
 };
 const agora = new Date().toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).replace(" ", "-").replace(/:(\d\d):\d\d$/, "h$1");
 mkdirSync(destino, { recursive: true });

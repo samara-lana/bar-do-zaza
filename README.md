@@ -28,7 +28,7 @@ As comandas ficam salvas no próprio celular e funcionam sem internet; cada muda
 
 **Preço:** só o número (`23`, `7,50`). Preço que não é número é recusado na hora de salvar (nunca vira um valor errado calado). Vazio aparece como "consulte" no site e pergunta o preço na hora de lançar.
 
-**Trocar a senha do admin:** no painel do Supabase, Authentication → Users → `zaza@bar-do-zaza.app` → Reset password / editar. Quem estiver logado continua até sair.
+**Trocar a senha do admin:** `node scripts/criar-admin.mjs` num PowerShell na pasta do projeto (pede a senha nova sem mostrar na tela). Quem estiver logado continua até sair.
 
 ## Onde ficam os dados (Supabase)
 
@@ -47,13 +47,13 @@ Painel: https://supabase.com/dashboard/project/jezxejsellwjyxunsxfn. Em **Table 
 
 Tudo isso se edita pelo admin (abas Cardápio, Bar e Fotos); o painel do Supabase fica pra conferência e emergência.
 
-Segurança: as tabelas ficam fechadas (RLS). O site público só consegue chamar `site()`, que devolve o cardápio; tudo o mais exige o login de um usuário que esteja em `admins`. A chave em `assets/config.js` é a pública ("anon"); a `service_role` fica só no `.env.local` (fora do git) e nos segredos do GitHub.
+Segurança: as tabelas ficam fechadas (RLS). O site público só consegue chamar `site()`, que devolve o cardápio; tudo o mais exige o login de um usuário que esteja em `admins`. A chave em `assets/config.js` é a pública ("anon"); a `service_role` fica só no `.env.local` (fora do git) e no script da planilha de backup (nunca no GitHub).
 
-**Backup:** o plano gratuito não faz backup. A Action "Backup do banco" tira uma cópia criptografada todo dia às 5h (artefato, 90 dias). Na mão: `node scripts/backup.mjs` (vai pra `backups/`, fora do git).
+**Backup:** o plano gratuito não faz backup. A planilha **"Bar do Zazá · Backup"** (Google Drive da Samara, código em `backup-planilha/`) copia o banco todo dia às 5h: abas Comandas, Itens, Pagamentos e Cardápio pra consulta, e um JSON completo por dia na pasta "Bar do Zazá · Backups" do Drive (90 dias), que é o que serve pra restaurar. Menu Backup → "Fazer backup agora" roda na hora. Se falhar, o Google manda e-mail. Na mão, no computador: `node scripts/backup.mjs` (vai pra `backups/`, fora do git).
 
-**Pausa do plano gratuito:** projeto sem uso por 7 dias é pausado. A Action "Cópia do cardápio" lê o banco a cada 15 minutos, o que já o mantém acordado. Se pausar mesmo assim, é só entrar no painel e clicar em "Restore".
+**Pausa do plano gratuito:** projeto sem uso por 7 dias é pausado. O backup da planilha e a Action "Cópia do cardápio" leem o banco todo dia, o que já o mantém acordado. Se pausar mesmo assim, é só entrar no painel e clicar em "Restore".
 
-Se o banco demorar ou sair do ar, o site mostra a última versão que aquele celular carregou ou a cópia que o GitHub tira a cada 15 minutos (`assets/dados-planilha.js`), a que for mais nova. Sem nenhuma das duas, usa `assets/dados-padrao.js`.
+Se o banco demorar ou sair do ar, o site mostra a última versão que aquele celular carregou ou a cópia que o GitHub tira todo dia às 5h (`assets/dados-planilha.js`), a que for mais nova. Sem nenhuma das duas, usa `assets/dados-padrao.js`.
 
 ## Estrutura
 
@@ -63,12 +63,13 @@ assets/style.css         visual
 assets/app.js            monta o cardápio, horário e "aberto agora"
 assets/config.js         endereço e chave pública do Supabase, e-mail do admin
 assets/dados-padrao.js   conteúdo padrão (último recurso, se não houver cópia)
-assets/dados-planilha.js cópia do banco, GERADA a cada 15 minutos pela Action (não edite)
+assets/dados-planilha.js cópia do banco, GERADA todo dia pela Action (não edite)
 admin/                   área de edição e comandas pelo celular (sw.js = funciona offline / instalável)
 fotos/                   fotos servidas pelo próprio site
 supabase/migrations/     tabelas, regras e funções do banco
 scripts/                 importar da planilha (cardápio e comandas) e backup (rodam no computador, com o .env.local)
-.github/                 Actions "Cópia do cardápio" e "Backup do banco"
+.github/                 Action "Cópia do cardápio" (todo dia às 5h)
+backup-planilha/         script da planilha "Bar do Zazá · Backup" (sobe com `clasp push` dentro da pasta)
 apps-script/             código antigo da planilha (aposentado, fica de referência)
 ```
 

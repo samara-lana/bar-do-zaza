@@ -87,6 +87,7 @@
     if (c.sincronizado !== false) c.pendenteDesde = Date.now();
     c.sincronizado = false;
     salvarLocal();
+    estadoSync("salvando…");
     agendarSync();
   }
 
@@ -201,7 +202,8 @@
    * `atualizado` (não é uma mudança de verdade).
    */
   function completarAntiga(c) {
-    if (c.status === "paga" && !(c.pagamentos && c.pagamentos.length) && c.fechada) {
+    // comanda vazia fechada como paga não tem dinheiro a registrar
+    if (c.status === "paga" && !(c.pagamentos && c.pagamentos.length) && c.fechada && total(c) > 0) {
       c.pagamentos = [{ id: "legado", valor: total(c), hora: c.fechada }];
     }
     if (!c.vendaEm && (c.status === "paga" || c.status === "pendurada")) c.vendaEm = dataDaVenda(c);
@@ -305,7 +307,8 @@
   /** Dinheiro que entrou. Conta paga antes de existir pagamento em partes = um pagamento só, no fechamento. */
   function recebimentos(c) {
     if (c.pagamentos && c.pagamentos.length) return c.pagamentos;
-    if (c.status === "paga") return [{ id: "unico", valor: total(c), hora: c.fechada }];
+    // conta vazia fechada como paga não recebeu nada (não conta em Vendas)
+    if (c.status === "paga" && total(c) > 0) return [{ id: "unico", valor: total(c), hora: c.fechada }];
     return [];
   }
 

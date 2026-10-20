@@ -43,7 +43,7 @@ const totalDe = (c) => centavos((c.lancamentos || []).reduce((s, l) => s + (Numb
 
 /** Igual a completarAntiga() + dataDaVenda() do admin. */
 function completarAntiga(c) {
-  if (c.status === "paga" && !(c.pagamentos && c.pagamentos.length) && c.fechada) {
+  if (c.status === "paga" && !(c.pagamentos && c.pagamentos.length) && c.fechada && totalDe(c) > 0) {
     c.pagamentos = [{ id: "legado", valor: totalDe(c), hora: c.fechada }];
   }
   if (!c.vendaEm && (c.status === "paga" || c.status === "pendurada")) {
